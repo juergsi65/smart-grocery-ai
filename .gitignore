@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets / lokale Daten
+.env
+*.env
+!.env.example
+cookidoo_sessions/
+/tmp/cookidoo_sessions/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
