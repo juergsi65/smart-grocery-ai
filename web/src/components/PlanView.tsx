@@ -3,7 +3,8 @@ import { categoryOf } from "../lib/categories";
 import type { OptimizeResponse, Plan, PlanItem } from "../types";
 import { ProductImage, RetailerLogo } from "./Media";
 import { Price, eur } from "./Price";
-import { Button, Notice } from "./ui";
+import { Badge, Button, Notice } from "./ui";
+import { cn } from "../lib/utils";
 
 const dmy = (iso: string) => iso.split("-").reverse().join(".");
 
@@ -11,8 +12,11 @@ function Summary({ plan }: { plan: Plan }) {
   const pct = plan.totalCount ? Math.round((plan.coveredCount / plan.totalCount) * 100) : 0;
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-5">
-      <Stat label="Gesamt (nur Angebote)"><Price cents={plan.totalCents} size="lg" /><span className="font-display text-2xl ml-1">€</span></Stat>
-      <Stat label="Ersparnis"><span className="font-display text-3xl text-discount tabular-nums">{eur(plan.savingsCents)}</span></Stat>
+      <Stat label={plan.estimatedCount ? "Gesamteinkauf (ca.)" : "Gesamteinkauf"}>
+        <Price cents={plan.totalCents} size="lg" /><span className="font-display text-2xl ml-1">€</span>
+        <div className="mt-1 text-xs text-muted-foreground">{plan.onSaleCount} im Angebot{plan.estimatedCount ? ` · ${plan.estimatedCount} geschätzt (${eur(plan.estimatedCents)})` : ""}</div>
+      </Stat>
+      <Stat label="Ersparnis durch Aktionen"><span className="font-display text-3xl text-discount tabular-nums">{eur(plan.savingsCents)}</span></Stat>
       <Stat label="Abgedeckt">
         <span className="font-display text-3xl tabular-nums">{plan.coveredCount}/{plan.totalCount}</span>
         <div className="h-1.5 bg-muted rounded mt-2"><div className="h-full bg-primary rounded" style={{ width: `${pct}%` }} /></div>
@@ -45,6 +49,11 @@ function planText(plan: Plan): string {
   return lines.join("\n").trim();
 }
 
+function PriceKind({ o }: { o: PlanItem["option"]["offer"] }) {
+  const label = o.price_source === "estimate" ? "Regalpreis (geschätzt)" : o.price_source === "manual" ? "Regalpreis (eigen)" : o.price_source === "learned" ? "Regalpreis" : o.is_on_sale === false ? "Regalpreis" : "Aktion";
+  return <Badge className={cn("mb-1", o.is_on_sale === false ? "bg-muted text-muted-foreground" : "bg-discount/15 text-discount")}>{label}</Badge>;
+}
+
 function ItemRow({ it, checked, onToggle }: { it: PlanItem; checked: boolean; onToggle: () => void }) {
   const o = it.option.offer;
   return (
@@ -62,8 +71,8 @@ function ItemRow({ it, checked, onToggle }: { it: PlanItem; checked: boolean; on
         </div>
       </div>
       <div className="text-right shrink-0">
-        {o.discount_pct ? <span className="inline-block bg-discount text-white text-xs font-bold rounded px-1.5 mb-1">−{o.discount_pct} %</span> : null}
-        <div><Price cents={o.price_cents} size="sm" /></div>
+        {o.discount_pct ? <span className="mb-1 inline-block rounded bg-discount px-1.5 text-xs font-bold text-discount-foreground">−{o.discount_pct} %</span> : <PriceKind o={o} />}
+        <div>{o.price_source === "estimate" && <span className="mr-0.5 text-xs text-muted-foreground">ca.</span>}<Price cents={it.option.costCents} size="sm" /></div>
         {o.old_price_cents ? <div className="mt-0.5"><Price cents={o.old_price_cents} size="sm" strike /></div> : null}
         {o.valid_to ? <div className="text-[0.7rem] text-muted-foreground mt-1">bis {dmy(o.valid_to)}</div> : null}
       </div>
@@ -78,6 +87,43 @@ function groupByCategory(items: PlanItem[]) {
     if (last && last.id === it.category) last.items.push(it); else out.push({ id: it.category, items: [it] });
   }
   return out;
+}
+
+function Comparison({ rows }: { rows: NonNullable<OptimizeResponse["comparison"]> }) {
+  const max = Math.max(...rows.map((r) => r.totalCents), 1);
+  const best = rows[0];
+  return (
+    <section aria-label="Gesamteinkauf je Markt" className="mt-6">
+      <h2 className="mb-3 text-xl">Gesamteinkauf je Markt</h2>
+      <ul className="space-y-2">
+        {rows.map((r, i) => (
+          <li key={r.retailerId} className={cn("rounded-2xl border bg-card p-3", i === 0 ? "border-primary" : "border-border")}>
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold">{r.retailerName}</span>
+              {i === 0 && <Badge className="bg-primary text-primary-foreground">am günstigsten</Badge>}
+              <span className="ml-auto font-bold tabular-nums">{r.estimatedCount ? "ca. " : ""}{eur(r.totalCents)}</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", i === 0 ? "bg-primary" : "bg-muted-foreground/50")} style={{ width: `${(r.totalCents / max) * 100}%` }} /></div>
+            <div className="mt-1.5 text-xs text-muted-foreground">
+              {r.onSaleCount} im Angebot · {r.itemCount - r.onSaleCount} Regalpreis{r.estimatedCount ? ` (${r.estimatedCount} geschätzt)` : ""}
+              {r.missingCount ? ` · ${r.missingCount} ohne Preis` : ""}
+              {i > 0 ? ` · +${eur(r.totalCents - best.totalCents)}` : ""}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Insight({ i }: { i: NonNullable<OptimizeResponse["insight"]> }) {
+  return (
+    <div className="mt-4"><Notice tone={i.worthIt ? "info" : "warn"}>
+      {i.worthIt
+        ? <>Ein zweiter Markt (<strong>{i.secondRetailer}</strong>) spart <strong>{eur(i.savingsCents)}</strong> gegenüber {i.baseRetailer} allein ({eur(i.baseTotalCents)}). Das lohnt sich ab ca. {eur(i.thresholdCents)} Fahrtaufwand.</>
+        : <>Bei {i.baseRetailer} allein ({eur(i.baseTotalCents)}) bist du fast gleich günstig: ein zweiter Markt würde nur {eur(i.savingsCents)} sparen, das lohnt die Fahrt nicht.</>}
+    </Notice></div>
+  );
 }
 
 export function PlanView({ data }: { data: OptimizeResponse }) {
@@ -106,6 +152,9 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
           </button>
         ))}
       </div>
+
+      {data.comparison && data.comparison.length > 0 && <Comparison rows={data.comparison} />}
+      {data.insight && data.insight.secondRetailer && <Insight i={data.insight} />}
 
       <Summary plan={plan} />
 
@@ -166,7 +215,7 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
       <p className="text-xs text-muted-foreground mt-6">
         {data.skippedDone ? `${data.skippedDone} bereits gekaufte/vorhandene Zutaten wurden übersprungen. ` : ""}{m.withOffers} von {m.ingredients} Zutaten mit Angebot zugeordnet
         {m.aiAccepted ? `, ${m.aiAccepted} per KI geprüft` : ""}{m.fallbackAccepted ? `, ${m.fallbackAccepted} per Regel` : ""}.
-        Preise gelten nur für Aktionsware; Zutaten ohne Angebot sind nicht eingerechnet.
+        Aktionspreise stammen aus aktuellen Flugblättern, Regalpreise aus gelernten Streichpreisen, eigenen Eingaben oder – als „geschätzt“ markiert – aus Richtwerten.
       </p>
     </section>
   );

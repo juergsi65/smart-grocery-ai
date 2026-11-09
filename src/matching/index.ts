@@ -15,6 +15,10 @@ import { STRONG, WEAK, fallbackAccept, lexicalScore, looksProcessed } from "./le
 export interface MatchedOffer extends OfferRow {
   score: number;
   via: "lexical" | "ai" | "fallback";
+  /** Aktionspreis (Flugblatt) oder regulaerer Regalpreis. Fehlt = Aktion (Altdaten). */
+  is_on_sale?: boolean;
+  /** Herkunft des Preises: Angebot, gelernter/manueller Normalpreis oder Richtwert (geschaetzt). */
+  price_source?: "offer" | "learned" | "manual" | "estimate";
 }
 
 export interface MatchResult {

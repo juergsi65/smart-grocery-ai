@@ -59,6 +59,10 @@ export interface Plan {
   savingsCents: number;
   coveredCount: number;
   totalCount: number;
+  /** Posten mit Aktionspreis / mit geschaetztem Richtwert und deren Summe (in totalCents enthalten). */
+  onSaleCount: number;
+  estimatedCount: number;
+  estimatedCents: number;
 }
 
 const MAX_PACKS = 10;
@@ -117,6 +121,10 @@ export interface OptimizeParams {
   strategy?: string;
   allowedRetailers?: Set<string> | null;
   excludedRetailers?: Set<string> | null;
+  /** Gewicht der Streichpreis-Ersparnis im Score (0 bei Voll-Preisvergleich, da die Kosten schon alles enthalten). */
+  savingsWeight?: number;
+  /** Pauschale Kosten je zusaetzlichem Geschaeft (Fahrt/Zeit) in Cent. */
+  stopPenaltyCents?: number;
 }
 
 export function optimize(needs: Need[], options: Map<string, Option[]>, p: OptimizeParams): Plan {
@@ -145,24 +153,27 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
     for (const n of needs) {
       const best = cheapestIn(filtered.get(n.key) ?? [], set);
       if (!best) continue;
-      s += bonus - (best.costCents - (refCost.get(n.key) ?? best.costCents)) + best.savingsCents;
+      s += bonus - (best.costCents - (refCost.get(n.key) ?? best.costCents)) + (p.savingsWeight ?? 1) * best.savingsCents;
     }
-    return s;
+    return s - (p.stopPenaltyCents ?? 0) * Math.max(0, set.size - 1);
   };
 
   let chosen: Set<string>;
-  if (p.maxStores === null || p.maxStores >= retailers.length) {
+  if (p.maxStores === null || (p.maxStores >= retailers.length && !p.stopPenaltyCents)) {
     chosen = new Set(retailers);
   } else {
     let bestScore = -Infinity;
     chosen = new Set();
-    for (const combo of combos(retailers, Math.max(1, p.maxStores))) {
-      const set = new Set(combo);
-      const s = scoreOf(set);
-      // Tie-Break: stabil nach Haendlernamen (combos ist sortiert)
-      if (s > bestScore) {
-        bestScore = s;
-        chosen = set;
+    // Bis zu maxStores Geschaefte; bei Gleichstand gewinnt die kleinere Zahl (weniger Stopps).
+    for (let k = 1; k <= Math.max(1, p.maxStores); k++) {
+      for (const combo of combos(retailers, k)) {
+        const set = new Set(combo);
+        const sc = scoreOf(set);
+        // Tie-Break: stabil nach Haendlernamen (combos ist sortiert)
+        if (sc > bestScore) {
+          bestScore = sc;
+          chosen = set;
+        }
       }
     }
   }
@@ -172,6 +183,9 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
   let total = 0;
   let savings = 0;
   let covered = 0;
+  let onSale = 0;
+  let estN = 0;
+  let estC = 0;
   for (const n of needs) {
     const best = cheapestIn(filtered.get(n.key) ?? [], chosen);
     if (!best) {
@@ -179,6 +193,8 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
       continue;
     }
     covered++;
+    if (best.offer.is_on_sale !== false) onSale++;
+    if (best.offer.price_source === "estimate") { estN++; estC += best.costCents; }
     total += best.costCents;
     savings += best.savingsCents;
     const rid = best.offer.retailer_id;
@@ -205,6 +221,72 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
     savingsCents: savings,
     coveredCount: covered,
     totalCount: needs.length,
+    onSaleCount: onSale,
+    estimatedCount: estN,
+    estimatedCents: estC,
+  };
+}
+
+export interface RetailerTotal {
+  retailerId: string;
+  retailerName: string;
+  /** Gesamteinkauf der ganzen Liste bei genau diesem Haendler. */
+  totalCents: number;
+  onSaleCount: number;
+  estimatedCount: number;
+  /** Zutaten ohne Preis bei diesem Haendler. */
+  missingCount: number;
+  itemCount: number;
+}
+
+/** "Gesamteinkauf bei Hofer: 24,50 EUR vs. Billa: 28,10 EUR": Summe je Haendler ueber alle Zutaten. */
+export function retailerComparison(
+  needs: Need[],
+  options: Map<string, Option[]>,
+  prefs: { allowed?: Set<string> | null; excluded?: Set<string> | null } = {},
+): RetailerTotal[] {
+  const ok = (id: string) => (!prefs.allowed || prefs.allowed.size === 0 || prefs.allowed.has(id)) && !(prefs.excluded && prefs.excluded.has(id));
+  const ids = [...new Set([...options.values()].flatMap((l) => l.map((o) => o.offer.retailer_id)))].filter(ok);
+  const out: RetailerTotal[] = ids.map((id) => {
+    let total = 0, onSale = 0, est = 0, missing = 0, name = id;
+    for (const n of needs) {
+      const best = cheapestIn(options.get(n.key) ?? [], new Set([id]));
+      if (!best) { missing++; continue; }
+      total += best.costCents;
+      if (best.offer.is_on_sale !== false) onSale++;
+      if (best.offer.price_source === "estimate") est++;
+      name = best.offer.retailer_name ?? name;
+    }
+    return { retailerId: id, retailerName: name, totalCents: total, onSaleCount: onSale, estimatedCount: est, missingCount: missing, itemCount: needs.length - missing };
+  });
+  // Vollstaendige Vergleiche zuerst (sonst waere ein Haendler mit Luecken scheinbar billiger).
+  return out.sort((a, b) => a.missingCount - b.missingCount || a.totalCents - b.totalCents);
+}
+
+export interface StopInsight {
+  baseRetailer: string;
+  baseTotalCents: number;
+  withSecondTotalCents: number;
+  secondRetailer: string | null;
+  savingsCents: number;
+  thresholdCents: number;
+  /** true: der zweite Markt spart mindestens die Schwelle (Fahrt lohnt sich). */
+  worthIt: boolean;
+}
+
+/** Lohnt sich ein zweiter Markt? Vergleich bester Ein-Markt-Einkauf vs. bester Zwei-Markt-Einkauf. */
+export function stopInsight(one: Plan, two: Plan, thresholdCents: number): StopInsight {
+  const base = one.stores[0];
+  const second = two.stores.find((s) => s.retailerId !== base?.retailerId) ?? null;
+  const savings = Math.max(0, one.totalCents - two.totalCents);
+  return {
+    baseRetailer: base?.retailerName ?? "",
+    baseTotalCents: one.totalCents,
+    withSecondTotalCents: Math.min(one.totalCents, two.totalCents),
+    secondRetailer: second?.retailerName ?? null,
+    savingsCents: savings,
+    thresholdCents,
+    worthIt: !!second && savings >= thresholdCents,
   };
 }
 
@@ -212,17 +294,25 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
 export function planAll(
   needs: Need[],
   options: Map<string, Option[]>,
-  prefs: { maxStores?: number; allowed?: Set<string> | null; excluded?: Set<string> | null } = {},
+  prefs: {
+    maxStores?: number; allowed?: Set<string> | null; excluded?: Set<string> | null;
+    /** Voll-Preisvergleich: Ersparnis nicht doppelt zaehlen, Komfort-Plan mit Stopp-Pauschale ergaenzen. */
+    stopPenaltyCents?: number; savingsWeight?: number;
+  } = {},
 ): Plan[] {
-  const base = { allowedRetailers: prefs.allowed ?? null, excludedRetailers: prefs.excluded ?? null };
+  const base = { allowedRetailers: prefs.allowed ?? null, excludedRetailers: prefs.excluded ?? null, savingsWeight: prefs.savingsWeight };
   const plans: Plan[] = [
     optimize(needs, options, { ...base, maxStores: 1, strategy: "one-stop", label: "Ein Geschäft" }),
     optimize(needs, options, { ...base, maxStores: 2, strategy: "two-stops", label: "Zwei Geschäfte" }),
     optimize(needs, options, { ...base, maxStores: null, strategy: "cheapest", label: "Günstigste Einzelpreise" }),
   ];
-  const k = prefs.maxStores;
-  if (k && k > 2) {
-    plans.splice(2, 0, optimize(needs, options, { ...base, maxStores: k, strategy: `max-${k}`, label: `Bis zu ${k} Geschäfte` }));
+  if (prefs.stopPenaltyCents) {
+    // Komfort: so viele Geschaefte, wie jeweils mindestens die Pauschale sparen (max. 4).
+    const k = Math.min(4, Math.max(3, prefs.maxStores ?? 3));
+    plans.splice(2, 0, optimize(needs, options, { ...base, maxStores: k, stopPenaltyCents: prefs.stopPenaltyCents, strategy: "comfort", label: "Komfort-Empfehlung" }));
+  } else {
+    const k = prefs.maxStores;
+    if (k && k > 2) plans.splice(2, 0, optimize(needs, options, { ...base, maxStores: k, strategy: `max-${k}`, label: `Bis zu ${k} Geschäfte` }));
   }
   return plans;
 }

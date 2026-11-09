@@ -5,6 +5,7 @@ import type { AppVars, Env } from "./env";
 import { chunkOf, refreshOffers } from "./offers/ingest";
 import { offers } from "./offers/routes";
 import { optimizeRoutes } from "./optimize-routes";
+import { prices } from "./pricing/routes";
 import { purgeExpiredSessions } from "./session";
 import { shopping } from "./shopping/routes";
 
@@ -17,6 +18,7 @@ app.route("/api/cookidoo", cookidoo);
 app.route("/api/offers", offers);
 app.route("/api/optimize", optimizeRoutes);
 app.route("/api/v1/shopping-list", shopping);
+app.route("/api/v1/prices", prices);
 
 app.notFound((c) => (c.req.path.startsWith("/api/") ? c.json({ error: "Nicht gefunden" }, 404) : c.env.ASSETS.fetch(c.req.raw)));
 app.onError((e, c) => {

@@ -8,10 +8,10 @@ import {
 } from "./cookidoo/aggregate";
 import { combineRecipes, errorResponse, loadShoppingList } from "./cookidoo/routes";
 import type { AppVars, Env } from "./env";
-import { matchIngredients } from "./matching";
+import { resolvePrices } from "./pricing/resolver";
 import { MAX_TERMS_PER_RUN, refreshOffers } from "./offers/ingest";
 import { candidateOffersBatch } from "./offers/store";
-import { buildOptions, planAll, type Need } from "./optimizer";
+import { buildOptions, planAll, retailerComparison, stopInsight, type Need } from "./optimizer";
 import { requireSession } from "./session";
 import { toNeed } from "./shopping/needs";
 import { ownerOf } from "./shopping/routes";
@@ -121,7 +121,12 @@ optimizeRoutes.post("/", async (c) => {
       }
     }
 
-    const { byKey, stats } = await matchIngredients(c.env, needs.map((n) => n.name), { useAi: body.useAi !== false });
+    // Selektion der Maerkte (pro Einkauf) hat Vorrang vor gespeicherten Einstellungen.
+    const selected = Array.isArray(body.retailers)
+      ? body.retailers.filter((x: unknown): x is string => typeof x === "string").map((x: string) => x.toLowerCase()).slice(0, 30)
+      : [];
+    // Preisfindung: Aktionen (Stufe 1) + Normalpreise/Richtwerte (Stufe 2) fuer jeden verglichenen Markt.
+    const { byKey, stats, retailerIds, matching: m } = await resolvePrices(c.env, needs, { retailers: selected, useAi: body.useAi !== false });
     const options = buildOptions(needs, byKey);
 
     const s = c.var.session.username
@@ -129,17 +134,22 @@ optimizeRoutes.post("/", async (c) => {
           .bind(c.var.session.username)
           .first<{ max_stores: number; preferred_retailers: string | null; excluded_retailers: string | null }>()
       : null;
-    // Pro Einkauf gewaehlte Maerkte haben Vorrang vor den gespeicherten Einstellungen.
-    const selected = Array.isArray(body.retailers)
-      ? body.retailers.filter((x: unknown): x is string => typeof x === "string").map((x: string) => x.toLowerCase()).slice(0, 30)
-      : [];
-    const plans = planAll(needs, options, {
-      maxStores: Math.min(s?.max_stores ?? 2, selected.length || 5),
+    const prefs = {
       allowed: selected.length ? new Set<string>(selected) : s?.preferred_retailers ? new Set<string>(JSON.parse(s.preferred_retailers)) : null,
       excluded: s?.excluded_retailers ? new Set<string>(JSON.parse(s.excluded_retailers)) : null,
+    };
+    const STOP_COST = 300; // Annahme: jeder zusaetzliche Markt kostet ca. 3 EUR an Fahrt/Zeit
+    const plans = planAll(needs, options, {
+      ...prefs,
+      maxStores: Math.min(s?.max_stores ?? 2, selected.length || 5),
+      stopPenaltyCents: STOP_COST,
+      savingsWeight: 0,
     });
+    const comparison = retailerComparison(needs, options, prefs);
+    const insight = stopInsight(plans[0], plans.find((p) => p.strategy === "two-stops")!, STOP_COST);
+    const matching = { ...m, priceStats: stats, retailers: retailerIds.length };
 
-    return c.json({ recipes, ingredientCount: needs.length, skippedDone, matching: stats, refresh, plans });
+    return c.json({ recipes, ingredientCount: needs.length, skippedDone, matching, refresh, plans, comparison, insight });
   } catch (e) {
     return errorResponse(c, e);
   }

@@ -71,3 +71,13 @@ Workers AI läuft auch lokal nur remote — ohne Zugang greift automatisch der R
   (`src/offers/schema.ts`), fehlerhafte werden gezählt statt den Lauf abzubrechen; Retry bei 429/5xx, veraltete Keys als Fallback,
   zuletzt gespeicherte Angebote in D1 bleiben als Fallback-Cache.
 - **UI:** shadcn/ui-Muster (cva, Radix) + Tailwind v4, Material-You-Tonpalette, Light/Dark (System/Hell/Dunkel), Milchglas-Navigation, 44-px-Touchziele.
+
+## Hybrid-Preise (Aktion + Regalpreis)
+
+- `PriceResolver` (`src/pricing/resolver.ts`): Stufe 1 = Flugblatt-Angebot (`is_on_sale: true`), Stufe 2 = Regalpreis des Händlers
+  (eigen > aus Streichpreisen gelernt > Richtwert). Ein Normalpreis wird nur ergänzt, wo es beim Händler kein Angebot gibt.
+  Nur offene Zutaten kommen an; gekaufte/vorhandene sind vorher gefiltert.
+- **Richtwerte** (`src/pricing/reference.ts`, ~90 Standardartikel × Händlerfaktor) sind **geschätzt**, keine gemessenen Preise. Die UI zeigt sie als „ca.“/„geschätzt“.
+  Echte Preise: `PUT /api/v1/prices/base` bzw. Einstellungen → Regalpreise; Streichpreise aus Aktionen werden automatisch in `base_prices` gelernt (Migration `0004`).
+- `POST /api/optimize` liefert zusätzlich `comparison` (Gesamteinkauf je Markt) und `insight` (lohnt sich ein zweiter Markt? Annahme 3 € je Zusatzstopp).
+  Strategien: Ein Geschäft, Zwei Geschäfte, Komfort-Empfehlung (Stopp-Pauschale), Günstigste Einzelpreise.

@@ -8,6 +8,8 @@ import { Price } from "../components/Price";
 import { RetailerLogo } from "../components/Media";
 import type { OfferTip, ShoppingItem } from "../types";
 
+/** Menge zuerst: "750 g Topfen" (display enthaelt Menge + Name), sonst nur der Name. */
+const label = (i: ShoppingItem) => (i.display && i.display.toLowerCase().includes(i.name.toLowerCase()) ? i.display : i.display && i.display !== i.name ? `${i.display} ${i.name}` : i.name);
 const isDone = (i: ShoppingItem) => i.is_bought || i.in_pantry;
 const order = (id: string) => CATEGORIES.findIndex((c) => c.id === id);
 
@@ -155,8 +157,8 @@ export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
                 <div key={it.id} className={cn("flex min-h-14 items-center gap-1 pr-2", fresh.has(it.id) && "animate-slide-down")}>
                   <Checkbox checked aria-label={`${it.name} wieder öffnen`} onCheckedChange={() => setFlags(it, { is_bought: false, in_pantry: false })} />
                   <div className="min-w-0 flex-1 py-2">
-                    <div className="truncate text-muted-foreground line-through decoration-muted-foreground/60">{it.name}</div>
-                    <div className="text-xs text-muted-foreground">{it.in_pantry ? "Zu Hause vorhanden" : "Gekauft"}{it.display && it.display !== it.name ? ` · ${it.display}` : ""}</div>
+                    <div className="truncate text-muted-foreground line-through decoration-muted-foreground/60">{label(it)}</div>
+                    <div className="text-xs text-muted-foreground">{it.in_pantry ? "Zu Hause vorhanden" : "Gekauft"}</div>
                   </div>
                   <Button variant="ghost" size="icon" aria-label="Wieder öffnen" onClick={() => setFlags(it, { is_bought: false, in_pantry: false })}><Undo2 /></Button>
                   <Button variant="ghost" size="icon" aria-label={`${it.name} löschen`} onClick={() => remove(it)}><Trash2 /></Button>
@@ -181,8 +183,7 @@ function Row({ it, tip, leaving, onCheck, onPantry }: { it: ShoppingItem; tip?: 
     <div className={cn("flex min-h-14 items-center gap-1 pr-2 transition-all duration-300", leaving && "translate-x-2 opacity-40")}>
       <Checkbox checked={leaving} aria-label={`${it.name} abhaken`} onCheckedChange={onCheck} />
       <div className="min-w-0 flex-1 py-2">
-        <div className={cn("font-medium leading-snug transition-all", leaving && "text-muted-foreground line-through")}>{it.name}</div>
-        {it.display && it.display !== it.name && <div className="text-xs text-muted-foreground">{it.display}</div>}
+        <div className={cn("font-medium leading-snug transition-all", leaving && "text-muted-foreground line-through")}>{label(it)}</div>
         {tip && !leaving && (
           <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary py-0.5 pr-2.5 pl-0.5 text-xs text-secondary-foreground">
             <RetailerLogo src={tip.retailer_logo} name={tip.retailer} size={20} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { BasePrices } from "../components/BasePrices";
 import { DataTools } from "../components/DataTools";
 import { Button, Field, Notice, Spinner, inputCls } from "../components/ui";
 import { useTheme, type ThemePref } from "../lib/theme";
@@ -23,7 +24,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-xl space-y-10">
+    <div className="max-w-3xl space-y-10">
       <h1 className="text-3xl sm:text-4xl">Einstellungen</h1>
       <section>
         <h2 className="mb-3 text-xl">Darstellung</h2>
@@ -46,6 +47,7 @@ export function SettingsPage() {
           <Button type="submit" disabled={busy}>{busy ? "Speichern …" : "Speichern"}</Button>
         </form>
       )}
+      <BasePrices />
       <DataTools />
     </div>
   );

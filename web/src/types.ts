@@ -20,6 +20,7 @@ export interface OfferRow {
   unit_price_cents: number | null; unit_price_basis: string | null;
   pack_amount: number | null; valid_to: string | null; image_url: string | null;
   category: string | null; discount_pct: number | null; retailer_logo?: string | null;
+  is_on_sale?: boolean; price_source?: "offer" | "learned" | "manual" | "estimate";
 }
 export interface PlanOption {
   offer: OfferRow & { via?: string };
@@ -31,12 +32,15 @@ export interface Plan {
   strategy: string; label: string; stores: PlanStore[];
   uncovered: { key: string; name: string; display: string; category: string }[];
   totalCents: number; savingsCents: number; coveredCount: number; totalCount: number;
+  onSaleCount: number; estimatedCount: number; estimatedCents: number;
 }
 export interface OptimizeResponse {
   recipes: unknown[]; ingredientCount: number; skippedDone?: number;
   matching: { ingredients: number; withOffers: number; aiTasks: number; aiAccepted: number; fallbackAccepted: number };
   refresh: null | { offers?: number; termsFailed?: number; firstError?: string; error?: string };
   plans: Plan[];
+  comparison?: RetailerTotal[];
+  insight?: StopInsight;
 }
 export interface OfferStats {
   activeOffers: number;
@@ -60,3 +64,16 @@ export interface ShoppingItem {
 }
 export interface OfferTip { retailer: string; retailer_logo: string | null; product_name: string; price_cents: number; old_price_cents: number | null; discount_pct: number | null; image_url: string | null }
 export interface ShoppingListResponse2 { items: ShoppingItem[]; tips?: Record<string, OfferTip>; counts: { open: number; done: number }; imported?: number }
+
+export interface RetailerTotal {
+  retailerId: string; retailerName: string; totalCents: number;
+  onSaleCount: number; estimatedCount: number; missingCount: number; itemCount: number;
+}
+export interface StopInsight {
+  baseRetailer: string; baseTotalCents: number; withSecondTotalCents: number; secondRetailer: string | null;
+  savingsCents: number; thresholdCents: number; worthIt: boolean;
+}
+export interface BasePriceRow {
+  id: number; retailer_id: string; retailer_name?: string | null; product_name: string; description: string | null;
+  price_cents: number; source: "learned" | "manual"; updated_at: number;
+}

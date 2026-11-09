@@ -1,6 +1,7 @@
 /** Persistenz und Abfrage von Angeboten in D1. */
 import { categorize, discountPct } from "../categories";
 import type { Env } from "../env";
+import { learnedStatements } from "../pricing/store";
 import { fold, parsePack, tokens, unitPriceCents } from "./normalize";
 import type { NormalizedOffer, OfferRow } from "./types";
 
@@ -52,6 +53,7 @@ export async function upsertOffers(env: Env, offers: NormalizedOffer[]): Promise
       ).bind(id, r.name, r.logo),
     );
   }
+  stmts.push(...learnedStatements(env, offers, now));
   // D1 batch: in Bloecken, um Limits sicher einzuhalten.
   for (let i = 0; i < stmts.length; i += 80) await env.DB.batch(stmts.slice(i, i + 80));
   return offers.length;

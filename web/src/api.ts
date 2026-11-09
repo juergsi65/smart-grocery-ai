@@ -1,5 +1,5 @@
 import type {
-  BrowseResponse, ShoppingItem, ShoppingListResponse2, CombineResponse, OfferRow, RetailerFacet, Sort, OfferStats, OptimizeResponse, Settings, ShoppingListResponse, WeekDay,
+  BasePriceRow, BrowseResponse, ShoppingItem, ShoppingListResponse2, CombineResponse, OfferRow, RetailerFacet, Sort, OfferStats, OptimizeResponse, Settings, ShoppingListResponse, WeekDay,
 } from "./types";
 
 const KEY = "sg.session";
@@ -50,6 +50,10 @@ export const api = {
   deleteListItem: (id: string) => req<{ ok: boolean }>(`/v1/shopping-list/items/${id}`, { method: "DELETE" }),
   importList: (body: { source: "cookidoo-list" } | { source: "recipes"; recipeIds: string[] }) =>
     post<ShoppingListResponse2>("/v1/shopping-list/import", body),
+  basePrices: (q?: string) => req<BasePriceRow[]>(`/v1/prices/base${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  putBasePrice: (b: { retailer: string; product: string; pack?: string; price: number }) =>
+    req<{ ok: boolean }>("/v1/prices/base", { method: "PUT", body: JSON.stringify(b) }),
+  deleteBasePrice: (id: number) => req<{ ok: boolean }>(`/v1/prices/base/${id}`, { method: "DELETE" }),
   browse: (p: { retailers: string[]; category?: string; q?: string; sort: Sort; discounts?: boolean; offset?: number; limit?: number }) => {
     const u = new URLSearchParams({ sort: p.sort, limit: String(p.limit ?? 24), offset: String(p.offset ?? 0) });
     if (p.retailers.length) u.set("retailers", p.retailers.join(","));
