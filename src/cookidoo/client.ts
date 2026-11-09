@@ -192,6 +192,11 @@ function pickThumbnail(assets: any[]): string | null {
   return null;
 }
 
+/** Abgehakt-Status tolerant lesen: Cookidoo nutzt `isOwned`; weitere Feldnamen sind abgedeckt, falls sie auftauchen. */
+export function ownedFlag(i: any): boolean {
+  return !!(i?.isOwned ?? i?.checked ?? i?.isChecked ?? i?.bought ?? i?.isBought ?? i?.inPantry ?? i?.isInPantry);
+}
+
 export class CookidooClient {
   readonly loc: Localization;
   constructor(
@@ -339,7 +344,7 @@ export class CookidooClient {
       (r.recipeIngredientGroups ?? []).map((i: any): IngredientItem => ({
         id: i.id,
         name: i.ingredientNotation,
-        isOwned: !!i.isOwned,
+        isOwned: ownedFlag(i),
         description: ingredientDescription(i),
       })),
     );
@@ -351,7 +356,7 @@ export class CookidooClient {
       return {
         ingredients: this.shoppingToItems(d),
         additional: (d.additionalItems ?? []).map(
-          (i: any): AdditionalItem => ({ id: i.id, name: i.name, isOwned: !!i.isOwned }),
+          (i: any): AdditionalItem => ({ id: i.id, name: i.name, isOwned: ownedFlag(i) }),
         ),
       };
     } catch {

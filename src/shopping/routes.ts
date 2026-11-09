@@ -4,6 +4,7 @@ import { aggregate, ingredientFromCookidoo, normalizeName, type CanonicalIngredi
 import { combineRecipes, errorResponse, withClient } from "../cookidoo/routes";
 import { parseQuantity } from "../cookidoo/quantity";
 import type { AppVars, Env } from "../env";
+import { matchIngredients } from "../matching";
 import { requireSession } from "../session";
 import { toNeed } from "./needs";
 import { AddItemSchema, ImportSchema, PatchItemSchema, splitQuantity } from "./schemas";
@@ -22,9 +23,30 @@ const summary = (items: { is_bought: boolean; in_pantry: boolean }[]) => ({
   done: items.filter((i) => i.is_bought || i.in_pantry).length,
 });
 
+/**
+ * Liste mit Status. Jeder Eintrag traegt is_bought / is_in_pantry-aequivalent `in_pantry`; `open` / `done` trennen die Abschnitte.
+ * ?offers=1: fuer OFFENE Eintraege das guenstigste passende Angebot als Haendler-Tipp (nur Regel-Matching, ohne KI).
+ * Gekaufte/vorhandene Eintraege loesen keine Angebotssuche aus.
+ */
 shopping.get("/", async (c) => {
   const items = await listItems(c.env, ownerOf(c));
-  return c.json({ items, counts: summary(items) });
+  const open = items.filter((i) => !i.is_bought && !i.in_pantry);
+  const done = items.filter((i) => i.is_bought || i.in_pantry);
+  let tips: Record<string, unknown> = {};
+  if (c.req.query("offers") === "1" && open.length) {
+    const { byKey } = await matchIngredients(c.env, open.map((i) => i.name), { useAi: false });
+    for (const it of open) {
+      const best = [...(byKey.get(normalizeName(it.name)) ?? [])].sort((a, b) => a.price_cents - b.price_cents)[0];
+      if (best) {
+        tips[it.id] = {
+          retailer: best.retailer_name ?? best.retailer_id, retailer_logo: best.retailer_logo ?? null,
+          product_name: best.product_name, price_cents: best.price_cents, old_price_cents: best.old_price_cents,
+          discount_pct: best.discount_pct, image_url: best.image_url,
+        };
+      }
+    }
+  }
+  return c.json({ items, open: open.map((i) => i.id), done: done.map((i) => i.id), tips, counts: summary(items) });
 });
 
 shopping.post("/items", async (c) => {

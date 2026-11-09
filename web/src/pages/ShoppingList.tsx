@@ -4,13 +4,16 @@ import { api } from "../api";
 import { Badge, Button, Card, Checkbox, Collapsible, CollapsibleContent, CollapsibleTrigger, Notice, inputCls } from "../components/ui";
 import { CATEGORIES, categoryOf } from "../lib/categories";
 import { cn } from "../lib/utils";
-import type { ShoppingItem } from "../types";
+import { Price } from "../components/Price";
+import { RetailerLogo } from "../components/Media";
+import type { OfferTip, ShoppingItem } from "../types";
 
 const isDone = (i: ShoppingItem) => i.is_bought || i.in_pantry;
 const order = (id: string) => CATEGORIES.findIndex((c) => c.id === id);
 
 export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
   const [items, setItems] = useState<ShoppingItem[] | null>(null);
+  const [tips, setTips] = useState<Record<string, OfferTip>>({});
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [fresh, setFresh] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
@@ -19,7 +22,7 @@ export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const timers = useRef<number[]>([]);
 
-  const load = useCallback(() => api.list().then((r) => setItems(r.items)).catch((e: Error) => setMsg({ tone: "error", text: e.message })), []);
+  const load = useCallback(() => api.list().then((r) => { setItems(r.items); setTips(r.tips ?? {}); }).catch((e: Error) => setMsg({ tone: "error", text: e.message })), []);
   useEffect(() => { load(); return () => timers.current.forEach(clearTimeout); }, [load]);
 
   const open = useMemo(() => (items ?? []).filter((i) => !isDone(i)).sort((a, b) => order(a.category) - order(b.category) || a.name.localeCompare(b.name)), [items]);
@@ -118,7 +121,8 @@ export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
         </Card>
       )}
 
-      <div className="mt-6 space-y-5">
+      {open.length > 0 && <h2 className="mt-8 text-xl">Noch zu kaufen <span className="text-muted-foreground">({open.length})</span></h2>}
+      <div className="mt-3 space-y-5">
         {groups.map((g) => {
           const c = categoryOf(g.id);
           return (
@@ -128,7 +132,7 @@ export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
               </h2>
               <Card className="divide-y divide-border overflow-hidden">
                 {g.items.map((it) => (
-                  <Row key={it.id} it={it} leaving={leaving.has(it.id)}
+                  <Row key={it.id} it={it} tip={tips[it.id]} leaving={leaving.has(it.id)}
                     onCheck={() => complete(it, { is_bought: true })}
                     onPantry={() => complete(it, { in_pantry: true })} />
                 ))}
@@ -141,7 +145,7 @@ export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
       {done.length > 0 && (
         <Collapsible open={panelOpen} onOpenChange={setPanelOpen} className="mt-6">
           <CollapsibleTrigger className="flex min-h-12 w-full items-center gap-2 rounded-2xl bg-muted px-4 text-left text-sm font-semibold">
-            <span className="flex-1">Erledigt / Vorhanden</span>
+            <span className="flex-1">Bereits vorhanden / Abgehakt</span>
             <Badge>{done.length}</Badge>
             <ChevronDown className={cn("size-5 transition-transform", panelOpen && "rotate-180")} />
           </CollapsibleTrigger>
@@ -172,13 +176,21 @@ export function ShoppingList({ onOptimize }: { onOptimize: () => void }) {
   );
 }
 
-function Row({ it, leaving, onCheck, onPantry }: { it: ShoppingItem; leaving: boolean; onCheck: () => void; onPantry: () => void }) {
+function Row({ it, tip, leaving, onCheck, onPantry }: { it: ShoppingItem; tip?: OfferTip; leaving: boolean; onCheck: () => void; onPantry: () => void }) {
   return (
     <div className={cn("flex min-h-14 items-center gap-1 pr-2 transition-all duration-300", leaving && "translate-x-2 opacity-40")}>
       <Checkbox checked={leaving} aria-label={`${it.name} abhaken`} onCheckedChange={onCheck} />
       <div className="min-w-0 flex-1 py-2">
         <div className={cn("font-medium leading-snug transition-all", leaving && "text-muted-foreground line-through")}>{it.name}</div>
         {it.display && it.display !== it.name && <div className="text-xs text-muted-foreground">{it.display}</div>}
+        {tip && !leaving && (
+          <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary py-0.5 pr-2.5 pl-0.5 text-xs text-secondary-foreground">
+            <RetailerLogo src={tip.retailer_logo} name={tip.retailer} size={20} />
+            <span className="truncate font-semibold">{tip.retailer}</span>
+            <span className="inline-flex items-center gap-0.5"><Price cents={tip.price_cents} size="sm" /> €</span>
+            {tip.discount_pct ? <span className="font-bold text-discount">−{tip.discount_pct} %</span> : null}
+          </div>
+        )}
       </div>
       <Button variant="ghost" size="icon" aria-label={`${it.name} ist zu Hause vorhanden`} title="Habe ich zu Hause" onClick={onPantry}><Home /></Button>
     </div>

@@ -58,4 +58,5 @@ export interface ShoppingItem {
   source: "manual" | "cookidoo" | "recipes";
   is_bought: boolean; in_pantry: boolean; updated_at: number;
 }
-export interface ShoppingListResponse2 { items: ShoppingItem[]; counts: { open: number; done: number }; imported?: number }
+export interface OfferTip { retailer: string; retailer_logo: string | null; product_name: string; price_cents: number; old_price_cents: number | null; discount_pct: number | null; image_url: string | null }
+export interface ShoppingListResponse2 { items: ShoppingItem[]; tips?: Record<string, OfferTip>; counts: { open: number; done: number }; imported?: number }

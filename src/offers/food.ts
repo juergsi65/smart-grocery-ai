@@ -29,6 +29,8 @@ const NON_FOOD_PREFIXES = [
   "garten", "pflanzen", "mode", "bekleidung", "textil", "schuhe", "accessoires", "schmuck", "uhren", "moebel",
   "einrichtung", "wohnen", "spielwaren", "spielzeug", "baby-ausstattung", "sport", "freizeit", "fahrrad",
   "auto", "kfz", "buecher", "buero", "schreibwaren", "reisen", "optik", "tierbedarf", "haustier",
+  // Drogerie / Non-Food-Haushalt
+  "drogerie", "kosmetik", "koerperpflege", "haushalt", "reinigung", "waschmittel", "hygiene", "babypflege",
 ];
 
 export function isNonFoodCategory(hint: string | null | undefined): boolean {

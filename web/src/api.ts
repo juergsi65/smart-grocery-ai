@@ -43,7 +43,7 @@ export const api = {
   syncShoppingList: (recipeIds: string[]) => post<ShoppingListResponse>("/cookidoo/shopping-list/sync", { recipeIds }),
   optimize: (body: { source: "recipes" | "shopping-list" | "manual" | "list"; recipeIds?: string[]; items?: string[]; retailers?: string[] }) =>
     post<OptimizeResponse>("/optimize", body),
-  list: () => req<ShoppingListResponse2>("/v1/shopping-list"),
+  list: () => req<ShoppingListResponse2>("/v1/shopping-list?offers=1"),
   addListItem: (name: string) => post<ShoppingListResponse2>("/v1/shopping-list/items", { name }),
   patchListItem: (id: string, patch: { is_bought?: boolean; in_pantry?: boolean }) =>
     req<ShoppingItem>(`/v1/shopping-list/items/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),

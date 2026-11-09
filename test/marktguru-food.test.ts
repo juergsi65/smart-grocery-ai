@@ -24,9 +24,9 @@ describe("isFoodRetailer", () => {
 });
 
 describe("isNonFoodCategory", () => {
-  it.each(["Elektronik & Multimedia", "Baumarkt", "Garten", "Mode & Accessoires", "Möbel", "Spielwaren"])(
+  it.each(["Elektronik & Multimedia", "Baumarkt", "Garten", "Mode & Accessoires", "Möbel", "Spielwaren", "Drogerie & Kosmetik", "Haushalt & Reinigung"])(
     "%s -> true", (c) => expect(isNonFoodCategory(c)).toBe(true));
-  it.each(["Obst & Gemüse", "Getränke", "Fleisch & Wurst", "Haushalt", null, undefined])(
+  it.each(["Obst & Gemüse", "Getränke", "Fleisch & Wurst", null, undefined])(
     "%s -> false", (c) => expect(isNonFoodCategory(c as string)).toBe(false));
 });
 
