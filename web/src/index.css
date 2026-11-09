@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Archivo", "Arial Narrow", sans-serif;
+  --font-body: "Public Sans", system-ui, sans-serif;
+  --color-paper: #eef1ef;
+  --color-card: #fbfcfb;
+  --color-ink: #14231f;
+  --color-ink-soft: #4a5b56;
+  --color-line: #cfd8d4;
+  --color-mint: #cfe8dc;
+  --color-tag: #d92d27;
+  --color-tag-dark: #a81e1a;
+  --color-mark: #ffd23f;
+}
+
+html { background: var(--color-paper); }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  font-stretch: 75%;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+
+:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 2px; }
+
+/* Perforierter Abriss am unteren Rand der Kassenbon-Karten */
+.receipt {
+  --notch: 8px;
+  background:
+    radial-gradient(circle at 50% 100%, var(--color-paper) 0 4px, transparent 4.5px) bottom / 16px 8px repeat-x,
+    var(--color-card);
+  padding-bottom: calc(1.25rem + var(--notch));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

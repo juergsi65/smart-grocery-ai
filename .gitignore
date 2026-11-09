@@ -18,3 +18,10 @@ cookidoo_sessions/
 .vscode/
 .idea/
 .DS_Store
+
+# Cloudflare
+.dev.vars
+.wrangler/
+node_modules/
+web/dist/
+web/node_modules/

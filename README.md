@@ -1,34 +1,52 @@
-# Smart Grocery AI — Cookidoo Angebots- & Einkaufsoptimierer (AT)
+# Smart Grocery AI — Cookidoo × österreichische Supermarktangebote
 
-Verbindet **Cookidoo** mit oesterreichischen Supermarktangeboten und erzeugt die
-intelligenteste, realistische Einkaufsliste — Fokus auf Komfort, nicht nur
-niedrigstem Preis. Laeuft self-hosted (Docker) und ist auf Oesterreich (de-AT)
-optimiert.
+Verbindet **Cookidoo** (Wochenplan, Rezepte, Einkaufsliste) mit aktuellen Supermarktangeboten und rechnet aus,
+wo man mit wenig Aufwand am besten einkauft. Läuft komplett auf **Cloudflare** (ein Worker + D1 + Workers AI).
 
-## Status
+## Architektur
 
-Modular aufgebaut, iterativer Bau. Aktuell fertig:
+| Teil | Technik |
+|---|---|
+| API | Cloudflare Worker, [Hono](https://hono.dev), TypeScript (`src/`) |
+| Frontend | React + Vite + Tailwind (`web/`), vom selben Worker als Static Assets ausgeliefert |
+| Daten | D1 (Sessions, Angebote, Einstellungen, KI-Cache) — Schema in `migrations/` |
+| KI-Matching | Workers AI (`@cf/meta/llama-3.1-8b-instruct`), nur für mehrdeutige Zuordnungen, Ergebnisse in D1 gecacht |
+| Cron | täglich 04:30/04:35/04:40 UTC: Angebote in 3 Chunks aktualisieren |
 
-- [x] **Phase 1 — `cookidoo`-Modul** (`api/app/modules/cookidoo/`): Login,
-      Wochenplan, Rezeptdetails, **Rezepte kombinieren + Mengen zusammenrechnen**,
-      Einkaufsliste. 14 Tests gruen, 8 API-Endpunkte, OpenAPI unter `/docs`.
-- [ ] Phase 2 — `offers`: Angebots-Ingestion, alle AT-Quellen als Spikes
-      (marktguru, Haendler-JSON, Flugblatt-PDF) — Quelle wird am Ende entschieden.
-- [ ] Phase 3 — `matching` (KI: Zutat → Produkt), `optimizer` (Einkaufsstrategien).
-- [ ] Phase 4 — Frontend (React/TS/Tailwind/shadcn), Dashboard, Karte, Liste.
-- [ ] Phase 5 — Multi-User/Familie, Benachrichtigungen, Admin.
+Module: `src/cookidoo/` (Login, Rezepte, Mengenlogik) · `src/offers/` (Quellen, Ingestion, Suche) ·
+`src/matching/` (Zutat → Angebot) · `src/optimizer.ts` (Einkaufsstrategien) · `legacy-python-api/` (alte FastAPI-Phase-1, nur Referenz).
 
-Details & Start: siehe [`api/README.md`](api/README.md).
-
-## Schnellstart
+## Deployen
 
 ```bash
-cd api
-pip install -r requirements.txt
-uvicorn app.main:app --reload   # http://localhost:8000/docs
+npm install
+npx wrangler login
+npx wrangler d1 create smart-grocery          # nur falls noch nicht vorhanden; ID in wrangler.toml eintragen
+npm run db:migrate:remote                      # Schema in die Cloudflare-D1 einspielen
+npx wrangler secret put SESSION_KEY            # beliebige zufällige Zeichenfolge, mind. 32 Zeichen
+npm run deploy                                 # baut das Frontend und deployt den Worker
 ```
 
-## Hinweis
+Alternativ: Repo in Cloudflare (Workers Builds) verbinden, Build-Befehl `npm run build`, Deploy-Befehl `npx wrangler deploy`.
 
-`cookidoo-api` ist inoffiziell/reverse-engineered und fuer **privaten**
-Self-Hosted-Betrieb gedacht. Ein privates Repo wird empfohlen.
+Lokal: `.dev.vars` mit `SESSION_KEY=...` anlegen, `npm run db:migrate:local`, `npm run dev` (API+Frontend auf :8787);
+Workers AI läuft auch lokal nur remote — ohne Zugang greift automatisch der Regel-Fallback.
+
+## Funktionsumfang
+
+- **Cookidoo:** Login (Passwort wird nicht gespeichert, Cookies verschlüsselt in D1), Wochenplan, Rezepte kombinieren mit Mengenaddition (kg+g, dag, Bereiche), Cookidoo-Einkaufsliste lesen und Rezeptzutaten dorthin übernehmen.
+- **Angebote:** Marktguru-Adapter (täglich per Cron + manuell), JSON-Import für beliebige Quellen, Suche, Packungsgröße und Grundpreis werden berechnet.
+- **Matching:** Vorfilter in D1 → lexikalischer Score → mehrdeutige Fälle per Workers AI → Regel-Fallback, falls die KI nicht antwortet.
+- **Optimizer:** „Ein Geschäft“, „Zwei Geschäfte“, „Günstigste Einzelpreise“ (+ eigene Obergrenze), Packungsanzahl, Verschnitt, Ersparnis laut Streichpreis, Zutaten ohne Angebot.
+- **Frontend:** Anmeldung, Einkauf planen (Wochenplan / Cookidoo-Liste / eigene Liste), Angebote, Einstellungen.
+
+## Bekannte Grenzen (ehrlich)
+
+- Die **Cookidoo-Anbindung** (inoffiziell) und die **Marktguru-Schnittstelle** sind im Worker nachgebaut, aber hier nicht gegen die Live-Dienste getestet — beim ersten Echtlauf Login, Wochenplan und Angebots-Refresh prüfen.
+- Workers AI wurde nicht gegen den echten Dienst getestet; Fehler fallen sauber auf die Regeln zurück.
+- Workers **Free** erlaubt ~50 Subrequests pro Aufruf: der Angebots-Refresh ist deshalb auf 40 Suchbegriffe je Lauf begrenzt. Große Listen profitieren vom Paid-Plan.
+- Preise gelten nur für Aktionsware; Zutaten ohne Angebot sind nicht eingerechnet.
+
+## Tests
+
+`npm test` — 40 Tests (Mengenlogik, Normalisierung, Matching, Optimizer).
