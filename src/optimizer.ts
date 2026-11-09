@@ -11,6 +11,7 @@
  * Der coverageBonus (Default 150 ct) drueckt aus, wie viel einem ein Haken auf der Liste
  * ohne Extra-Stopp wert ist; er ist ein einstellbarer Parameter, keine Naturkonstante.
  */
+import { categoryOrder } from "./categories";
 import type { MatchedOffer } from "./matching";
 
 export type PackDim = "mass" | "volume" | "count";
@@ -19,6 +20,7 @@ export interface Need {
   key: string;
   name: string;
   display: string;
+  category: string;
   /** Benoetigte Menge in Basiseinheit (g / ml / Stk), obere Grenze; null = unbekannt/qualitativ. */
   amount: number | null;
   dimension: PackDim | null;
@@ -37,6 +39,7 @@ export interface PlanItem {
   key: string;
   name: string;
   display: string;
+  category: string;
   option: Option;
 }
 
@@ -51,7 +54,7 @@ export interface Plan {
   strategy: string;
   label: string;
   stores: PlanStore[];
-  uncovered: { key: string; name: string; display: string }[];
+  uncovered: { key: string; name: string; display: string; category: string }[];
   totalCents: number;
   savingsCents: number;
   coveredCount: number;
@@ -172,7 +175,7 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
   for (const n of needs) {
     const best = cheapestIn(filtered.get(n.key) ?? [], chosen);
     if (!best) {
-      uncovered.push({ key: n.key, name: n.name, display: n.display });
+      uncovered.push({ key: n.key, name: n.name, display: n.display, category: n.category });
       continue;
     }
     covered++;
@@ -183,10 +186,15 @@ export function optimize(needs: Need[], options: Map<string, Option[]>, p: Optim
       byStore.set(rid, { retailerId: rid, retailerName: best.offer.retailer_name ?? rid, items: [], subtotalCents: 0 });
     }
     const st = byStore.get(rid)!;
-    st.items.push({ key: n.key, name: n.name, display: n.display, option: best });
+    st.items.push({ key: n.key, name: n.name, display: n.display, category: n.category, option: best });
     st.subtotalCents += best.costCents;
   }
 
+  // Innerhalb eines Marktes nach Regal-Reihenfolge, dann Name: so laeuft man einmal durch den Laden.
+  for (const st of byStore.values()) {
+    st.items.sort((a, b) => categoryOrder(a.category) - categoryOrder(b.category) || a.name.localeCompare(b.name));
+  }
+  uncovered.sort((a, b) => categoryOrder(a.category) - categoryOrder(b.category) || a.name.localeCompare(b.name));
   const stores = [...byStore.values()].sort((a, b) => b.items.length - a.items.length || b.subtotalCents - a.subtotalCents);
   return {
     strategy: p.strategy ?? "custom",

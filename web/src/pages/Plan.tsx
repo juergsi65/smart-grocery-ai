@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { MarketPicker } from "../components/MarketPicker";
 import { PlanView } from "../components/PlanView";
+import { useMarkets } from "../lib/markets";
 import { Button, Notice, Spinner, inputCls } from "../components/ui";
 import type { Aggregated, OptimizeResponse, WeekDay } from "../types";
 
@@ -26,6 +28,7 @@ function AggregatedList({ items }: { items: Aggregated[] }) {
 }
 
 export function Plan() {
+  const { markets, toggle: toggleMarket, set: setMarkets } = useMarkets();
   const [source, setSource] = useState<Source>("recipes");
   const [anchor, setAnchor] = useState(() => new Date());
   const [week, setWeek] = useState<WeekDay[] | null>(null);
@@ -69,7 +72,7 @@ export function Plan() {
     try {
       setResult(
         await api.optimize(
-          source === "recipes" ? { source, recipeIds: ids } : source === "manual" ? { source, items: manualItems } : { source },
+          source === "recipes" ? { source, recipeIds: ids, retailers: markets } : source === "manual" ? { source, items: manualItems, retailers: markets } : { source, retailers: markets },
         ),
       );
     } catch (e) { setError((e as Error).message); } finally { setBusy(null); }
@@ -85,7 +88,7 @@ export function Plan() {
 
   return (
     <div>
-      <h2 className="text-4xl mb-5">Einkauf planen</h2>
+      <h1 className="text-4xl sm:text-5xl mb-5">Einkauf planen</h1>
 
       <div role="tablist" aria-label="Quelle der Zutaten" className="inline-flex rounded-md border border-line bg-card p-1 gap-1">
         {([["recipes", "Wochenplan"], ["shopping-list", "Cookidoo-Einkaufsliste"], ["manual", "Eigene Liste"]] as const).map(([k, l]) => (
@@ -139,6 +142,12 @@ export function Plan() {
         <p className="mt-5 text-sm text-ink-soft max-w-xl">Es wird die Liste verwendet, die du in Cookidoo gerade geführt hast. Zutaten, die du schon zu Hause hast und in Cookidoo abgehakt sind, bleiben in der Liste.</p>
       )}
 
+      <section className="mt-8" aria-label="Märkte für diesen Einkauf">
+        <h2 className="text-2xl mb-1">Wo kaufst du ein?</h2>
+        <p className="text-sm text-ink-soft mb-3">Der Plan nutzt nur Angebote der gewählten Märkte. Ohne Auswahl werden alle verglichen.</p>
+        <MarketPicker markets={markets} onToggle={(id) => { setResult(null); toggleMarket(id); }} onClear={() => { setResult(null); setMarkets([]); }} />
+      </section>
+
       <div className="mt-6 flex flex-wrap gap-3 items-center">
         {source !== "manual" && (
           <Button variant="ghost" onClick={merge} disabled={!ready || busy !== null}>{busy === "merge" ? "Zusammenführen …" : "Zutaten zusammenführen"}</Button>
@@ -157,7 +166,7 @@ export function Plan() {
 
       {merged && (
         <section className="mt-8" aria-label="Zusammengeführte Zutaten">
-          <h3 className="text-2xl mb-3">Zutaten insgesamt ({merged.length})</h3>
+          <h2 className="text-2xl mb-3">Zutaten insgesamt ({merged.length})</h2>
           <AggregatedList items={merged} />
         </section>
       )}

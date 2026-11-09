@@ -7,6 +7,7 @@ import {
   type CanonicalIngredient,
 } from "./cookidoo/aggregate";
 import { combineRecipes, errorResponse, loadShoppingList } from "./cookidoo/routes";
+import { categorize } from "./categories";
 import type { AppVars, Env } from "./env";
 import { matchIngredients } from "./matching";
 import { MAX_TERMS_PER_RUN, refreshOffers } from "./offers/ingest";
@@ -29,7 +30,7 @@ export function toNeed(a: AggregatedIngredient): Need {
     const f = pick.unit === "kg" || pick.unit === "l" ? 1000 : 1;
     amount = pick.high * f;
   }
-  return { key: normalizeName(a.name), name: a.name, display: a.display, amount, dimension };
+  return { key: normalizeName(a.name), name: a.name, display: a.display, category: categorize(a.name), amount, dimension };
 }
 
 // ------------------------------------------------------------------ Einstellungen
@@ -73,7 +74,7 @@ optimizeRoutes.put("/settings", async (c) => {
  * 3. Matching (lexikalisch + Workers AI), 4. Strategien berechnen
  */
 optimizeRoutes.post("/", async (c) => {
-  const body = await c.req.json<{ recipeIds?: string[]; source?: string; items?: unknown[]; live?: boolean; useAi?: boolean }>().catch(() => ({}) as any);
+  const body = await c.req.json<{ recipeIds?: string[]; source?: string; items?: unknown[]; live?: boolean; useAi?: boolean; retailers?: unknown }>().catch(() => ({}) as any);
   try {
     let aggregated: AggregatedIngredient[];
     let recipes: unknown[] = [];
@@ -131,9 +132,13 @@ optimizeRoutes.post("/", async (c) => {
           .bind(c.var.session.username)
           .first<{ max_stores: number; preferred_retailers: string | null; excluded_retailers: string | null }>()
       : null;
+    // Pro Einkauf gewaehlte Maerkte haben Vorrang vor den gespeicherten Einstellungen.
+    const selected = Array.isArray(body.retailers)
+      ? body.retailers.filter((x: unknown): x is string => typeof x === "string").map((x: string) => x.toLowerCase()).slice(0, 30)
+      : [];
     const plans = planAll(needs, options, {
-      maxStores: s?.max_stores,
-      allowed: s?.preferred_retailers ? new Set<string>(JSON.parse(s.preferred_retailers)) : null,
+      maxStores: Math.min(s?.max_stores ?? 2, selected.length || 5),
+      allowed: selected.length ? new Set<string>(selected) : s?.preferred_retailers ? new Set<string>(JSON.parse(s.preferred_retailers)) : null,
       excluded: s?.excluded_retailers ? new Set<string>(JSON.parse(s.excluded_retailers)) : null,
     });
 

@@ -75,7 +75,11 @@ export const marktguru: OfferSource = {
         oldPriceCents: typeof o.oldPrice === "number" ? Math.round(o.oldPrice * 100) : null,
         validFrom: dateOnly(v?.from),
         validTo: dateOnly(v?.to),
+        // Bild-/Logo-URL-Schema aus der Library `marktguru` (CDN dort fuer .de); unverifiziert fuer .at.
+        // Das Frontend faellt bei Ladefehlern auf Kategorie-Icon bzw. Haendler-Initialen zurueck.
         imageUrl: o.id != null ? `https://mg2de.b-cdn.net/api/v1/offers/${o.id}/images/default/0/medium.jpg` : null,
+        categoryHint: o.categories?.[0]?.name ?? null,
+        retailerLogoUrl: adv.id != null ? `https://mg2de.b-cdn.net/api/v1/${adv.id}/images/logos/0/small.png` : null,
       });
     }
     return out;

@@ -6,10 +6,10 @@ let id = 0;
 const offer = (retailer: string, price: number, extra: Partial<MatchedOffer> = {}): MatchedOffer => ({
   id: ++id, source: "t", retailer_id: retailer, retailer_name: retailer.toUpperCase(), product_name: "x", brand: null,
   description: null, price_cents: price, old_price_cents: null, unit_price_cents: null, unit_price_basis: null,
-  pack_amount: null, pack_dimension: null, valid_from: null, valid_to: null, image_url: null, score: 1, via: "lexical", ...extra,
+  pack_amount: null, pack_dimension: null, valid_from: null, valid_to: null, image_url: null, category: null, discount_pct: null, score: 1, via: "lexical", ...extra,
 });
 const need = (key: string, amount: number | null = null, dimension: Need["dimension"] = null): Need => ({
-  key, name: key, display: key, amount, dimension,
+  key, name: key, display: key, category: "sonstiges", amount, dimension,
 });
 
 describe("buildOption", () => {

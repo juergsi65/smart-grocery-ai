@@ -50,3 +50,11 @@ Workers AI läuft auch lokal nur remote — ohne Zugang greift automatisch der R
 ## Tests
 
 `npm test` — 40 Tests (Mengenlogik, Normalisierung, Matching, Optimizer).
+
+## Angebote, Märkte & Kategorien
+
+- Startseite ist die Angebotsübersicht (`GET /api/offers/browse`): Filter nach Märkten, Regal-Kategorien, Suche, Sortierung (Rabatt / Preis / Grundpreis), Facetten mit Anzahl.
+- Märkte werden pro Einkauf gewählt (Chips mit Logo); die Auswahl wird lokal vorbelegt und geht als `retailers: string[]` an `POST /api/optimize`.
+- Kategorien: `src/categories.ts` (Schlüsselwörter, Quelle-Hinweis nur als Fallback). Pläne sind je Markt nach Regal-Reihenfolge sortiert.
+- Bilder/Logos werden von der Quelle verlinkt (Marktguru-CDN, unverifiziert für .at); bei Fehlern erscheinen Kategorie-Icon bzw. Initialen.
+- Migration `0002_categories_discounts.sql` muss vor dem Deploy angewendet sein (`npm run db:migrate:remote`).

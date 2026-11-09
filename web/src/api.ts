@@ -1,5 +1,5 @@
 import type {
-  CombineResponse, OfferRow, OfferStats, OptimizeResponse, Settings, ShoppingListResponse, WeekDay,
+  BrowseResponse, CombineResponse, OfferRow, RetailerFacet, Sort, OfferStats, OptimizeResponse, Settings, ShoppingListResponse, WeekDay,
 } from "./types";
 
 const KEY = "sg.session";
@@ -41,8 +41,17 @@ export const api = {
   combine: (recipeIds: string[]) => post<CombineResponse>("/cookidoo/combine", { recipeIds }),
   shoppingList: () => req<ShoppingListResponse>("/cookidoo/shopping-list"),
   syncShoppingList: (recipeIds: string[]) => post<ShoppingListResponse>("/cookidoo/shopping-list/sync", { recipeIds }),
-  optimize: (body: { source: "recipes" | "shopping-list" | "manual"; recipeIds?: string[]; items?: string[] }) =>
+  optimize: (body: { source: "recipes" | "shopping-list" | "manual"; recipeIds?: string[]; items?: string[]; retailers?: string[] }) =>
     post<OptimizeResponse>("/optimize", body),
+  browse: (p: { retailers: string[]; category?: string; q?: string; sort: Sort; discounts?: boolean; offset?: number; limit?: number }) => {
+    const u = new URLSearchParams({ sort: p.sort, limit: String(p.limit ?? 24), offset: String(p.offset ?? 0) });
+    if (p.retailers.length) u.set("retailers", p.retailers.join(","));
+    if (p.category) u.set("category", p.category);
+    if (p.q && p.q.trim().length >= 2) u.set("q", p.q.trim());
+    if (p.discounts) u.set("discounts", "1");
+    return req<BrowseResponse>(`/offers/browse?${u}`);
+  },
+  retailers: () => req<RetailerFacet[]>("/offers/retailers"),
   offerStats: () => req<OfferStats>("/offers/stats"),
   offerSearch: (q: string) => req<OfferRow[]>(`/offers/search?q=${encodeURIComponent(q)}`),
   offerRefresh: (chunk: number) =>

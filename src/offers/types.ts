@@ -11,6 +11,9 @@ export interface NormalizedOffer {
   validFrom: string | null;
   validTo: string | null;
   imageUrl: string | null;
+  /** Kategorie-Name der Quelle (nur Hinweis fuer die Zuordnung). */
+  categoryHint?: string | null;
+  retailerLogoUrl?: string | null;
 }
 
 export interface OfferRow {
@@ -30,6 +33,9 @@ export interface OfferRow {
   valid_from: string | null;
   valid_to: string | null;
   image_url: string | null;
+  category: string | null;
+  discount_pct: number | null;
+  retailer_logo?: string | null;
 }
 
 /** Eine Angebotsquelle. Mehrere Adapter koennen parallel existieren. */

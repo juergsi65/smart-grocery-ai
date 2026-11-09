@@ -45,3 +45,7 @@ h1, h2, h3, .font-display {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+:root { --header-h: 56px; }

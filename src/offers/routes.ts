@@ -3,7 +3,8 @@ import type { AppVars, Env } from "../env";
 import { requireSession } from "../session";
 import { MAX_TERMS_PER_RUN, SEED_TERMS, refreshOffers } from "./ingest";
 import { fold } from "./normalize";
-import { offerStats, searchOffers, upsertOffers } from "./store";
+import { CATEGORIES } from "../categories";
+import { browseOffers, listRetailers, offerStats, searchOffers, upsertOffers } from "./store";
 import type { NormalizedOffer } from "./types";
 
 export const offers = new Hono<{ Bindings: Env; Variables: AppVars }>();
@@ -15,6 +16,35 @@ offers.get("/search", async (c) => {
   const q = c.req.query("q") ?? "";
   if (q.trim().length < 2) return c.json({ error: "Suchbegriff zu kurz" }, 400);
   return c.json(await searchOffers(c.env, q, c.req.query("retailer") ?? undefined));
+});
+
+offers.get("/categories", (c) => c.json(CATEGORIES));
+
+offers.get("/retailers", async (c) => c.json(await listRetailers(c.env)));
+
+/**
+ * Angebote stoebern: ?retailers=billa,spar &category=obst-gemuese &q=tomaten &sort=discount|price|unit
+ * &discounts=1 (nur mit Rabatt) &limit=24 &offset=0
+ * Antwort enthaelt Facetten (Kategorien und Maerkte mit Anzahl) passend zu den aktuellen Filtern.
+ */
+offers.get("/browse", async (c) => {
+  const list = (v: string | undefined) => (v ? v.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean).slice(0, 30) : []);
+  const sortQ = c.req.query("sort");
+  const sort = sortQ === "price" || sortQ === "unit" ? sortQ : "discount";
+  const cat = c.req.query("category");
+  const limit = Math.min(60, Math.max(1, Number(c.req.query("limit")) || 24));
+  const offset = Math.max(0, Number(c.req.query("offset")) || 0);
+  const q = (c.req.query("q") ?? "").slice(0, 80);
+  const res = await browseOffers(c.env, {
+    retailers: list(c.req.query("retailers")),
+    category: cat && CATEGORIES.some((x) => x.id === cat) ? cat : undefined,
+    q: q.trim().length >= 2 ? q : undefined,
+    sort,
+    onlyDiscounts: c.req.query("discounts") === "1",
+    limit,
+    offset,
+  });
+  return c.json({ ...res, limit, offset });
 });
 
 /** Live-Refresh (Marktguru). Body: { terms?: string[], zip?: string } - ohne terms: erster Seed-Chunk. */
@@ -34,7 +64,8 @@ offers.post("/refresh", async (c) => {
 
 /**
  * Manueller Import - verlaesslicher Weg fuer Flugblatt-/Haendler-JSON oder eigene Daten.
- * Body: { offers: [{ retailer, retailerName?, product, brand?, description?, price, oldPrice?, validFrom?, validTo? }] }
+ * Body: { offers: [{ retailer, retailerName?, product, brand?, description?, price, oldPrice?, validFrom?, validTo?,
+ *   imageUrl? (https), category? (Hinweis), retailerLogo? (https) }] }
  * price/oldPrice in Euro.
  */
 offers.post("/import", async (c) => {
@@ -62,7 +93,9 @@ offers.post("/import", async (c) => {
       oldPriceCents: Number.isFinite(old) && old > price ? Math.round(old * 100) : null,
       validFrom: typeof o.validFrom === "string" ? o.validFrom.slice(0, 10) : null,
       validTo: typeof o.validTo === "string" ? o.validTo.slice(0, 10) : null,
-      imageUrl: typeof o.imageUrl === "string" ? o.imageUrl : null,
+      imageUrl: typeof o.imageUrl === "string" && /^https:\/\//.test(o.imageUrl) ? o.imageUrl : null,
+      categoryHint: typeof o.category === "string" ? o.category : null,
+      retailerLogoUrl: typeof o.retailerLogo === "string" && /^https:\/\//.test(o.retailerLogo) ? o.retailerLogo : null,
     });
   });
   const imported = await upsertOffers(c.env, out);

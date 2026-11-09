@@ -1,138 +1,126 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { Price } from "../components/Price";
-import { Button, Notice, inputCls } from "../components/ui";
-import type { OfferRow, OfferStats } from "../types";
+import { MarketPicker } from "../components/MarketPicker";
+import { OfferCard, OfferSkeleton } from "../components/OfferCard";
+import { Button, Notice } from "../components/ui";
+import { CATEGORIES } from "../lib/categories";
+import { useMarkets } from "../lib/markets";
+import type { BrowseResponse, Sort } from "../types";
 
-const EXAMPLE = `[
-  { "retailer": "billa", "retailerName": "BILLA", "product": "Cocktailtomaten", "description": "250 g",
-    "price": 1.99, "oldPrice": 2.79, "validTo": "2026-11-18" }
-]`;
+const SORTS: [Sort, string][] = [["discount", "Höchster Rabatt"], ["price", "Niedrigster Preis"], ["unit", "Grundpreis"]];
+const PAGE = 24;
 
-export function Offers() {
-  const [stats, setStats] = useState<OfferStats | null>(null);
+export function Offers({ goSettings }: { goSettings: () => void }) {
+  const { markets, toggle, set } = useMarkets();
+  const [category, setCategory] = useState<string | undefined>();
+  const [sort, setSort] = useState<Sort>("discount");
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState<OfferRow[] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ tone: "info" | "error" | "warn"; text: string } | null>(null);
-  const [json, setJson] = useState("");
+  const [dq, setDq] = useState("");
+  const [data, setData] = useState<BrowseResponse | null>(null);
+  const [more, setMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reqId = useRef(0);
 
-  const loadStats = () => api.offerStats().then(setStats).catch((e: Error) => setMsg({ tone: "error", text: e.message }));
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => { const t = setTimeout(() => setDq(q), 300); return () => clearTimeout(t); }, [q]);
 
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    if (q.trim().length < 2) return;
-    setBusy("search");
-    try { setRows(await api.offerSearch(q)); setMsg(null); } catch (err) { setMsg({ tone: "error", text: (err as Error).message }); } finally { setBusy(null); }
-  }
-
-  async function refresh() {
-    setBusy("refresh");
-    setMsg(null);
-    let total = 0, failed = 0, firstError: string | undefined;
+  const load = useCallback(async (offset: number) => {
+    const id = ++reqId.current;
     try {
-      for (let chunk = 0; chunk < 3; chunk++) {
-        try {
-          const r = await api.offerRefresh(chunk);
-          total += r.offers; failed += r.termsFailed; firstError ??= r.firstError;
-        } catch (e) { firstError ??= (e as Error).message; failed++; }
-      }
-      setMsg(total > 0
-        ? { tone: failed ? "warn" : "info", text: `${total} Angebote aktualisiert${failed ? `, ${failed} Suchbegriffe sind fehlgeschlagen` : ""}.` }
-        : { tone: "error", text: `Es konnten keine Angebote geladen werden${firstError ? ` (${firstError})` : ""}. Importiere Angebote stattdessen als JSON.` });
-      loadStats();
-    } finally { setBusy(null); }
-  }
-
-  async function doImport() {
-    setBusy("import");
-    try {
-      const parsed = JSON.parse(json);
-      const r = await api.offerImport(Array.isArray(parsed) ? parsed : parsed.offers);
-      setMsg({ tone: r.skipped ? "warn" : "info", text: `${r.imported} Angebote importiert${r.skipped ? `, ${r.skipped} übersprungen (${r.errors[0]})` : ""}.` });
-      loadStats();
+      const r = await api.browse({ retailers: markets, category, q: dq, sort, offset, limit: PAGE });
+      if (id !== reqId.current) return;
+      setError(null);
+      setData((cur) => (offset > 0 && cur ? { ...r, offers: [...cur.offers, ...r.offers] } : r));
     } catch (e) {
-      setMsg({ tone: "error", text: e instanceof SyntaxError ? "Das ist kein gültiges JSON." : (e as Error).message });
-    } finally { setBusy(null); }
-  }
+      if (id === reqId.current) setError((e as Error).message);
+    } finally {
+      if (id === reqId.current) setMore(false);
+    }
+  }, [markets, category, dq, sort]);
+
+  useEffect(() => { setData((d) => (d ? { ...d, offers: d.offers } : d)); load(0); }, [load]);
+
+  const catCount = new Map(data?.categories.map((c) => [c.id, c.n]));
+  const allCount = data?.categories.reduce((a, c) => a + c.n, 0) ?? 0;
+  const loading = !data && !error;
+  const empty = data && data.offers.length === 0;
+  const noDataAtAll = empty && !category && !dq && markets.length === 0;
 
   return (
-    <div className="space-y-10">
-      <section>
-        <h2 className="text-4xl mb-4">Angebote</h2>
-        {stats && (
-          <div className="flex flex-wrap gap-x-10 gap-y-3 items-end">
-            <div>
-              <div className="font-display text-5xl tabular-nums">{stats.activeOffers}</div>
-              <div className="text-sm text-ink-soft">aktuell gültige Angebote</div>
-            </div>
-            {stats.retailers.map((r) => (
-              <div key={r.id}>
-                <div className="font-display text-2xl tabular-nums">{r.n}</div>
-                <div className="text-sm text-ink-soft">{r.name ?? r.id}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {stats && stats.activeOffers === 0 && (
-          <div className="mt-4"><Notice>Noch keine Angebote gespeichert. Lade sie von Marktguru oder importiere eigene.</Notice></div>
-        )}
-        <div className="mt-5 flex flex-wrap gap-3 items-center">
-          <Button onClick={refresh} disabled={busy !== null}>{busy === "refresh" ? "Wird geladen …" : "Angebote von Marktguru laden"}</Button>
-          <span className="text-xs text-ink-soft">Läuft zusätzlich täglich automatisch.</span>
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+          <h1 className="text-4xl sm:text-5xl">Aktuelle Angebote</h1>
+          <p className="text-sm text-ink-soft mt-1" aria-live="polite">
+            {data ? `${data.total} Angebote${markets.length ? ` in ${markets.length} ${markets.length === 1 ? "Markt" : "Märkten"}` : " in allen Märkten"}` : " "}
+          </p>
         </div>
-        {msg && <div className="mt-4"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
-      </section>
+        <input type="search" aria-label="Angebote durchsuchen" placeholder="Suchen, z. B. Mozzarella"
+          value={q} onChange={(e) => setQ(e.target.value)}
+          className="w-full sm:w-72 rounded-full border border-line bg-card px-4 h-11 text-base" />
+      </div>
 
-      <section>
-        <h3 className="text-2xl mb-3">Angebote suchen</h3>
-        <form onSubmit={search} className="flex gap-3 max-w-lg">
-          <input aria-label="Suchbegriff" className={inputCls} placeholder="z. B. Mozzarella" value={q} onChange={(e) => setQ(e.target.value)} />
-          <Button type="submit" variant="ghost" disabled={busy !== null}>Suchen</Button>
-        </form>
-        {rows && rows.length === 0 && <p className="mt-4 text-sm text-ink-soft">Keine Angebote zu „{q}“ gefunden.</p>}
-        {rows && rows.length > 0 && (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {rows.map((o) => (
-              <li key={o.id} className="rounded-md border border-line bg-card p-4 flex gap-3 justify-between">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-tag-dark">{o.retailer_name ?? o.retailer_id}</div>
-                  <div className="font-semibold leading-snug">{o.product_name}</div>
-                  <div className="text-sm text-ink-soft">{o.description}</div>
-                  {o.unit_price_cents && <div className="text-xs text-ink-soft mt-1">{(o.unit_price_cents / 100).toFixed(2).replace(".", ",")} € je {o.unit_price_basis}</div>}
-                </div>
-                <div className="text-right shrink-0">
-                  <Price cents={o.price_cents} />
-                  {o.old_price_cents && <div className="mt-1"><Price cents={o.old_price_cents} size="sm" strike /></div>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <MarketPicker markets={markets} onToggle={toggle} onClear={() => set([])} facets={data?.retailers} />
 
-      <section>
-        <h3 className="text-2xl mb-1">Angebote importieren</h3>
-        <p className="text-sm text-ink-soft mb-3 max-w-xl">Füge eine JSON-Liste ein, zum Beispiel aus einem Händler-Flugblatt. Preise in Euro. So bleibt der Vergleich auch nutzbar, wenn Marktguru nicht erreichbar ist.</p>
-        <textarea aria-label="Angebote als JSON" className={`${inputCls} min-h-40 font-mono text-sm`} value={json} onChange={(e) => setJson(e.target.value)} placeholder={EXAMPLE} />
-        <div className="mt-3"><Button variant="ghost" onClick={doImport} disabled={busy !== null || !json.trim()}>{busy === "import" ? "Importieren …" : "Importieren"}</Button></div>
-      </section>
+      {/* Kategorien: klebt unter dem Header */}
+      <div className="sticky top-[var(--header-h,56px)] z-10 -mx-4 px-4 py-2 mt-3 bg-paper/95 backdrop-blur border-b border-line">
+        <div role="group" aria-label="Kategorie" className="flex gap-2 overflow-x-auto no-scrollbar">
+          <CatChip active={!category} onClick={() => setCategory(undefined)} icon="✨" label="Alle" n={allCount} />
+          {CATEGORIES.map((c) => {
+            const n = catCount.get(c.id) ?? 0;
+            if (!n && category !== c.id) return null;
+            return <CatChip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)} icon={c.icon} label={c.name} n={n} />;
+          })}
+        </div>
+      </div>
 
-      {stats && stats.recentRuns.length > 0 && (
-        <section>
-          <h3 className="text-2xl mb-3">Letzte Aktualisierungen</h3>
-          <ul className="text-sm divide-y divide-line max-w-2xl">
-            {stats.recentRuns.map((r, i) => (
-              <li key={i} className="py-2 flex gap-4">
-                <span className="w-40 shrink-0 text-ink-soft">{new Date(r.started_at).toLocaleString("de-AT", { dateStyle: "short", timeStyle: "short" })}</span>
-                <span className="w-24 shrink-0">{r.source}</span>
-                <span className={r.ok ? "" : "text-tag-dark"}>{r.ok ? `${r.count} Angebote` : "fehlgeschlagen"}{r.message ? ` · ${r.message}` : ""}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <div className="flex items-center gap-2 mt-4 mb-4 text-sm overflow-x-auto no-scrollbar whitespace-nowrap">
+        <span className="text-ink-soft shrink-0">Sortieren:</span>
+        {SORTS.map(([k, l]) => (
+          <button key={k} onClick={() => setSort(k)} aria-pressed={sort === k}
+            className={`shrink-0 rounded-full px-3 h-9 font-semibold ${sort === k ? "bg-ink text-paper" : "bg-card border border-line hover:bg-mint"}`}>{l}</button>
+        ))}
+      </div>
+
+      {error && <Notice tone="error">{error}</Notice>}
+
+      <ul className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {loading && Array.from({ length: 8 }, (_, i) => <OfferSkeleton key={i} />)}
+        {data?.offers.map((o) => <OfferCard key={o.id} o={o} />)}
+      </ul>
+
+      {noDataAtAll && (
+        <div className="max-w-lg mx-auto text-center py-12">
+          <div className="text-5xl mb-3" aria-hidden="true">🛒</div>
+          <h2 className="text-2xl mb-2">Noch keine Angebote</h2>
+          <p className="text-sm text-ink-soft mb-4">Lade die aktuellen Angebote oder importiere eigene Daten.</p>
+          <Button onClick={goSettings}>Zu den Angebotsdaten</Button>
+        </div>
+      )}
+      {empty && !noDataAtAll && (
+        <div className="text-center py-12">
+          <div className="text-4xl mb-2" aria-hidden="true">🔍</div>
+          <p className="font-semibold">Keine Angebote für diese Auswahl.</p>
+          <p className="text-sm text-ink-soft mt-1">Wähle weitere Märkte oder eine andere Kategorie.</p>
+          <Button variant="ghost" className="mt-4" onClick={() => { set([]); setCategory(undefined); setQ(""); }}>Filter zurücksetzen</Button>
+        </div>
+      )}
+
+      {data && data.offers.length < data.total && (
+        <div className="text-center mt-8">
+          <Button variant="ghost" disabled={more} onClick={() => { setMore(true); load(data.offers.length); }}>
+            {more ? "Lädt …" : `Mehr laden (${data.total - data.offers.length} weitere)`}
+          </Button>
+        </div>
       )}
     </div>
+  );
+}
+
+function CatChip({ active, onClick, icon, label, n }: { active: boolean; onClick: () => void; icon: string; label: string; n: number }) {
+  return (
+    <button onClick={onClick} aria-pressed={active}
+      className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 h-10 text-sm font-semibold border ${active ? "bg-mark border-ink text-ink" : "bg-card border-line hover:bg-mint"}`}>
+      <span aria-hidden="true">{icon}</span>{label}<span className="text-xs text-ink-soft font-medium">{n}</span>
+    </button>
   );
 }
