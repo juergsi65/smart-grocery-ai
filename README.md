@@ -24,10 +24,10 @@ npx wrangler login
 npx wrangler d1 create smart-grocery          # nur falls noch nicht vorhanden; ID in wrangler.toml eintragen
 npm run db:migrate:remote                      # Schema in die Cloudflare-D1 einspielen
 npx wrangler secret put SESSION_KEY            # beliebige zufällige Zeichenfolge, mind. 32 Zeichen
-npm run deploy                                 # baut das Frontend und deployt den Worker
+npm run deploy                                 # = wrangler deploy; baut dabei automatisch das Frontend ([build] in wrangler.toml)
 ```
 
-Alternativ: Repo in Cloudflare (Workers Builds) verbinden, Build-Befehl `npm run build`, Deploy-Befehl `npx wrangler deploy`.
+Alternativ: Repo in Cloudflare (Workers Builds) verbinden. Build-Befehl kann leer bleiben, Deploy-Befehl `npx wrangler deploy` genügt — das Frontend wird über `[build]` in `wrangler.toml` gebaut. Vorher einmalig `npm run db:migrate:remote` und das Secret `SESSION_KEY` setzen (Worker → Settings → Variables and Secrets).
 
 Lokal: `.dev.vars` mit `SESSION_KEY=...` anlegen, `npm run db:migrate:local`, `npm run dev` (API+Frontend auf :8787);
 Workers AI läuft auch lokal nur remote — ohne Zugang greift automatisch der Regel-Fallback.

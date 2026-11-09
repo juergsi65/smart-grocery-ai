@@ -2,6 +2,11 @@ name = "smart-grocery-ai"
 main = "src/index.ts"
 compatibility_date = "2024-12-18"
 
+# Wird von `wrangler deploy` automatisch vor dem Bundling ausgefuehrt (auch in Cloudflare Workers Builds):
+# Abhaengigkeiten installieren und das Frontend nach web/dist bauen.
+[build]
+command = "npm install && npm run build:web"
+
 # Frontend (Vite-Build) wird als Static Assets vom selben Worker ausgeliefert.
 [assets]
 directory = "./web/dist"
