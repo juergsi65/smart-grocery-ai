@@ -1,5 +1,5 @@
 import type {
-  BrowseResponse, CombineResponse, OfferRow, RetailerFacet, Sort, OfferStats, OptimizeResponse, Settings, ShoppingListResponse, WeekDay,
+  BrowseResponse, ShoppingItem, ShoppingListResponse2, CombineResponse, OfferRow, RetailerFacet, Sort, OfferStats, OptimizeResponse, Settings, ShoppingListResponse, WeekDay,
 } from "./types";
 
 const KEY = "sg.session";
@@ -41,8 +41,15 @@ export const api = {
   combine: (recipeIds: string[]) => post<CombineResponse>("/cookidoo/combine", { recipeIds }),
   shoppingList: () => req<ShoppingListResponse>("/cookidoo/shopping-list"),
   syncShoppingList: (recipeIds: string[]) => post<ShoppingListResponse>("/cookidoo/shopping-list/sync", { recipeIds }),
-  optimize: (body: { source: "recipes" | "shopping-list" | "manual"; recipeIds?: string[]; items?: string[]; retailers?: string[] }) =>
+  optimize: (body: { source: "recipes" | "shopping-list" | "manual" | "list"; recipeIds?: string[]; items?: string[]; retailers?: string[] }) =>
     post<OptimizeResponse>("/optimize", body),
+  list: () => req<ShoppingListResponse2>("/v1/shopping-list"),
+  addListItem: (name: string) => post<ShoppingListResponse2>("/v1/shopping-list/items", { name }),
+  patchListItem: (id: string, patch: { is_bought?: boolean; in_pantry?: boolean }) =>
+    req<ShoppingItem>(`/v1/shopping-list/items/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteListItem: (id: string) => req<{ ok: boolean }>(`/v1/shopping-list/items/${id}`, { method: "DELETE" }),
+  importList: (body: { source: "cookidoo-list" } | { source: "recipes"; recipeIds: string[] }) =>
+    post<ShoppingListResponse2>("/v1/shopping-list/import", body),
   browse: (p: { retailers: string[]; category?: string; q?: string; sort: Sort; discounts?: boolean; offset?: number; limit?: number }) => {
     const u = new URLSearchParams({ sort: p.sort, limit: String(p.limit ?? 24), offset: String(p.offset ?? 0) });
     if (p.retailers.length) u.set("retailers", p.retailers.join(","));

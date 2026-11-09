@@ -12,17 +12,17 @@ function Summary({ plan }: { plan: Plan }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-5">
       <Stat label="Gesamt (nur Angebote)"><Price cents={plan.totalCents} size="lg" /><span className="font-display text-2xl ml-1">€</span></Stat>
-      <Stat label="Ersparnis"><span className="font-display text-3xl text-tag tabular-nums">{eur(plan.savingsCents)}</span></Stat>
+      <Stat label="Ersparnis"><span className="font-display text-3xl text-discount tabular-nums">{eur(plan.savingsCents)}</span></Stat>
       <Stat label="Abgedeckt">
         <span className="font-display text-3xl tabular-nums">{plan.coveredCount}/{plan.totalCount}</span>
-        <div className="h-1.5 bg-line rounded mt-2"><div className="h-full bg-ink rounded" style={{ width: `${pct}%` }} /></div>
+        <div className="h-1.5 bg-muted rounded mt-2"><div className="h-full bg-primary rounded" style={{ width: `${pct}%` }} /></div>
       </Stat>
       <Stat label="Geschäfte"><span className="font-display text-3xl tabular-nums">{plan.stores.length}</span></Stat>
     </div>
   );
 }
 const Stat = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="rounded-lg border border-line bg-card p-3"><div className="text-xs text-ink-soft mb-1">{label}</div>{children}</div>
+  <div className="rounded-2xl border border-border bg-card p-3"><div className="text-xs text-muted-foreground mb-1">{label}</div>{children}</div>
 );
 
 const useChecked = (storeKey: string) => {
@@ -49,23 +49,23 @@ function ItemRow({ it, checked, onToggle }: { it: PlanItem; checked: boolean; on
   const o = it.option.offer;
   return (
     <li className={`py-3 flex gap-3 items-center ${checked ? "opacity-50" : ""}`}>
-      <input type="checkbox" className="size-6 accent-[#14231f] shrink-0" checked={checked} onChange={onToggle} aria-label={`${it.name} abhaken`} />
-      <ProductImage src={o.image_url} category={it.category} className="size-16 rounded-md border border-line shrink-0" iconSize="text-2xl" />
+      <input type="checkbox" className="size-6 accent-primary shrink-0" checked={checked} onChange={onToggle} aria-label={`${it.name} abhaken`} />
+      <ProductImage src={o.image_url} category={it.category} className="size-16 rounded-2xl border border-border shrink-0" iconSize="text-2xl" />
       <div className="min-w-0 flex-1">
         <div className={`font-semibold leading-snug ${checked ? "line-through" : ""}`}>{it.name}</div>
-        <div className="text-sm text-ink-soft line-clamp-2">
+        <div className="text-sm text-muted-foreground line-clamp-2">
           {it.option.packs > 1 ? `${it.option.packs} × ` : ""}{o.product_name}{o.description ? `, ${o.description}` : ""}
         </div>
-        <div className="text-xs text-ink-soft mt-0.5">
+        <div className="text-xs text-muted-foreground mt-0.5">
           Bedarf: {it.display}
           {it.option.wastePct !== null && it.option.wastePct > 0.3 ? ` · ca. ${Math.round(it.option.wastePct * 100)} % bleiben übrig` : ""}
         </div>
       </div>
       <div className="text-right shrink-0">
-        {o.discount_pct ? <span className="inline-block bg-tag text-white text-xs font-bold rounded px-1.5 mb-1">−{o.discount_pct} %</span> : null}
+        {o.discount_pct ? <span className="inline-block bg-discount text-white text-xs font-bold rounded px-1.5 mb-1">−{o.discount_pct} %</span> : null}
         <div><Price cents={o.price_cents} size="sm" /></div>
         {o.old_price_cents ? <div className="mt-0.5"><Price cents={o.old_price_cents} size="sm" strike /></div> : null}
-        {o.valid_to ? <div className="text-[0.7rem] text-ink-soft mt-1">bis {dmy(o.valid_to)}</div> : null}
+        {o.valid_to ? <div className="text-[0.7rem] text-muted-foreground mt-1">bis {dmy(o.valid_to)}</div> : null}
       </div>
     </li>
   );
@@ -101,7 +101,7 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
       <div role="tablist" aria-label="Strategie" className="flex gap-2 overflow-x-auto no-scrollbar">
         {data.plans.map((p, i) => (
           <button key={p.strategy} role="tab" aria-selected={i === idx} onClick={() => setIdx(i)}
-            className={`shrink-0 rounded-full px-4 h-11 text-sm font-semibold border ${i === idx ? "bg-ink text-paper border-ink" : "bg-card border-line hover:bg-mint"}`}>
+            className={`shrink-0 rounded-full px-4 h-11 text-sm font-semibold border ${i === idx ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:bg-secondary"}`}>
             {p.label}
           </button>
         ))}
@@ -111,8 +111,8 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
 
       {plan.stores.length > 0 && (
         <div className="flex gap-2 mb-4">
-          <Button variant="ghost" onClick={copy}>{copied ? "Kopiert ✓" : "Als Text kopieren"}</Button>
-          {checked.set.size > 0 && <Button variant="ghost" onClick={checked.reset}>Haken zurücksetzen</Button>}
+          <Button variant="outline" onClick={copy}>{copied ? "Kopiert ✓" : "Als Text kopieren"}</Button>
+          {checked.set.size > 0 && <Button variant="outline" onClick={checked.reset}>Haken zurücksetzen</Button>}
         </div>
       )}
 
@@ -121,8 +121,8 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
       ) : (
         <div className="grid gap-5 lg:grid-cols-2 items-start">
           {groups.map(({ s, groups: gs }) => (
-            <article key={s.retailerId} className="rounded-lg border border-line bg-card overflow-hidden">
-              <header className="flex items-center gap-3 bg-ink text-paper px-4 py-3">
+            <article key={s.retailerId} className="rounded-2xl border border-border bg-card overflow-hidden">
+              <header className="flex items-center gap-3 bg-primary text-primary-foreground px-4 py-3">
                 <RetailerLogo src={s.items[0]?.option.offer.retailer_logo} name={s.retailerName} size={36} />
                 <h2 className="text-2xl flex-1">{s.retailerName}</h2>
                 <span className="font-display text-xl tabular-nums">{eur(s.subtotalCents)}</span>
@@ -132,10 +132,10 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
                   const c = categoryOf(g.id);
                   return (
                     <div key={g.id}>
-                      <h3 className="font-body !font-bold text-xs uppercase tracking-wider text-ink-soft pt-4 pb-1 flex items-center gap-1.5" style={{ fontStretch: "100%" }}>
+                      <h3 className="!font-bold text-xs uppercase tracking-wider text-muted-foreground pt-4 pb-1 flex items-center gap-1.5" style={{ fontStretch: "100%" }}>
                         <span aria-hidden="true">{c.icon}</span>{c.name}
                       </h3>
-                      <ul className="divide-y divide-line">
+                      <ul className="divide-y divide-border">
                         {g.items.map((it) => {
                           const id = `${s.retailerId}:${it.key}`;
                           return <ItemRow key={id} it={it} checked={checked.set.has(id)} onToggle={() => checked.toggle(id)} />;
@@ -155,7 +155,7 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
           <h2 className="text-xl mb-2">Ohne Angebot, normal einkaufen</h2>
           <ul className="flex flex-wrap gap-2">
             {plan.uncovered.map((u) => (
-              <li key={u.key} className="rounded-full bg-card border border-line px-3 py-1.5 text-sm">
+              <li key={u.key} className="rounded-full bg-card border border-border px-3 py-1.5 text-sm">
                 <span aria-hidden="true">{categoryOf(u.category).icon} </span>{u.display}
               </li>
             ))}
@@ -163,8 +163,8 @@ export function PlanView({ data }: { data: OptimizeResponse }) {
         </div>
       )}
 
-      <p className="text-xs text-ink-soft mt-6">
-        {m.withOffers} von {m.ingredients} Zutaten mit Angebot zugeordnet
+      <p className="text-xs text-muted-foreground mt-6">
+        {data.skippedDone ? `${data.skippedDone} bereits gekaufte/vorhandene Zutaten wurden übersprungen. ` : ""}{m.withOffers} von {m.ingredients} Zutaten mit Angebot zugeordnet
         {m.aiAccepted ? `, ${m.aiAccepted} per KI geprüft` : ""}{m.fallbackAccepted ? `, ${m.fallbackAccepted} per Regel` : ""}.
         Preise gelten nur für Aktionsware; Zutaten ohne Angebot sind nicht eingerechnet.
       </p>

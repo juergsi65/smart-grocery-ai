@@ -7,31 +7,20 @@ import {
   type CanonicalIngredient,
 } from "./cookidoo/aggregate";
 import { combineRecipes, errorResponse, loadShoppingList } from "./cookidoo/routes";
-import { categorize } from "./categories";
 import type { AppVars, Env } from "./env";
 import { matchIngredients } from "./matching";
 import { MAX_TERMS_PER_RUN, refreshOffers } from "./offers/ingest";
 import { candidateOffersBatch } from "./offers/store";
-import { buildOptions, planAll, type Need, type PackDim } from "./optimizer";
+import { buildOptions, planAll, type Need } from "./optimizer";
 import { requireSession } from "./session";
+import { toNeed } from "./shopping/needs";
+import { ownerOf } from "./shopping/routes";
+import { activeNeeds } from "./shopping/store";
 
 export const optimizeRoutes = new Hono<{ Bindings: Env; Variables: AppVars }>();
 optimizeRoutes.use("*", requireSession);
 
-/** Aggregierte Zutat -> Bedarf in Basiseinheit (erste mass/volume/count-Menge, obere Grenze). */
-export function toNeed(a: AggregatedIngredient): Need {
-  const pick =
-    a.amounts.find((x) => x.dimension === "mass" || x.dimension === "volume") ??
-    a.amounts.find((x) => x.dimension === "count");
-  let amount: number | null = null;
-  let dimension: PackDim | null = null;
-  if (pick) {
-    dimension = pick.dimension as PackDim;
-    const f = pick.unit === "kg" || pick.unit === "l" ? 1000 : 1;
-    amount = pick.high * f;
-  }
-  return { key: normalizeName(a.name), name: a.name, display: a.display, category: categorize(a.name), amount, dimension };
-}
+export { toNeed };
 
 // ------------------------------------------------------------------ Einstellungen
 optimizeRoutes.get("/settings", async (c) => {
@@ -76,9 +65,17 @@ optimizeRoutes.put("/settings", async (c) => {
 optimizeRoutes.post("/", async (c) => {
   const body = await c.req.json<{ recipeIds?: string[]; source?: string; items?: unknown[]; live?: boolean; useAi?: boolean; retailers?: unknown }>().catch(() => ({}) as any);
   try {
-    let aggregated: AggregatedIngredient[];
+    let aggregated: AggregatedIngredient[] = [];
     let recipes: unknown[] = [];
-    if (body.source === "manual") {
+    let needs: Need[] = [];
+    let skippedDone = 0;
+    if (body.source === "list") {
+      // Gespeicherte Einkaufsliste: gekaufte / vorhandene Zutaten werden komplett uebersprungen.
+      const r = await activeNeeds(c.env, ownerOf(c));
+      needs = r.needs;
+      skippedDone = r.skipped;
+      if (!needs.length) return c.json({ error: "Keine offenen Zutaten in der Einkaufsliste" }, 400);
+    } else if (body.source === "manual") {
       // Freie Liste: [{ name, description? }] oder Strings wie "Tomaten" / "500 g Mehl" (Name = ganzer String).
       const raw = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
       const list = raw
@@ -104,7 +101,7 @@ optimizeRoutes.post("/", async (c) => {
       recipes = combined.recipes;
     }
 
-    const needs = aggregated.map(toNeed);
+    if (body.source !== "list") needs = aggregated.map(toNeed);
     if (!needs.length) return c.json({ error: "Keine Zutaten gefunden" }, 400);
 
     // Live nachladen: nur Zutaten ohne jeden Kandidaten, begrenzt.
@@ -142,7 +139,7 @@ optimizeRoutes.post("/", async (c) => {
       excluded: s?.excluded_retailers ? new Set<string>(JSON.parse(s.excluded_retailers)) : null,
     });
 
-    return c.json({ recipes, ingredientCount: needs.length, matching: stats, refresh, plans });
+    return c.json({ recipes, ingredientCount: needs.length, skippedDone, matching: stats, refresh, plans });
   } catch (e) {
     return errorResponse(c, e);
   }

@@ -9,7 +9,7 @@ export function ProductImage({ src, category, className = "", iconSize = "text-4
   const cat = categoryOf(category);
   if (!src || failed) {
     return (
-      <div className={`grid place-items-center bg-mint/60 ${className}`} role="img" aria-label={cat.name}>
+      <div className={`grid place-items-center bg-secondary/60 ${className}`} role="img" aria-label={cat.name}>
         <span className={iconSize} aria-hidden="true">{cat.icon}</span>
       </div>
     );
@@ -30,13 +30,13 @@ export function RetailerLogo({ src, name, size = 28 }: { src?: string | null; na
   const box = { width: size, height: size };
   if (!src || failed) {
     return (
-      <span style={box} className="grid place-items-center rounded-full bg-ink text-paper text-[0.65rem] font-bold shrink-0" aria-hidden="true">
+      <span style={box} className="grid place-items-center rounded-full bg-primary text-primary-foreground text-[0.65rem] font-bold shrink-0" aria-hidden="true">
         {initials(name)}
       </span>
     );
   }
   return (
     <img src={src} alt="" style={box} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
-      className="rounded-full bg-white object-contain border border-line shrink-0" />
+      className="rounded-full bg-white object-contain border border-border shrink-0" />
   );
 }

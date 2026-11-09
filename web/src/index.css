@@ -1,51 +1,102 @@
 @import "tailwindcss";
 
-@theme {
-  --font-display: "Archivo", "Arial Narrow", sans-serif;
-  --font-body: "Public Sans", system-ui, sans-serif;
-  --color-paper: #eef1ef;
-  --color-card: #fbfcfb;
-  --color-ink: #14231f;
-  --color-ink-soft: #4a5b56;
-  --color-line: #cfd8d4;
-  --color-mint: #cfe8dc;
-  --color-tag: #d92d27;
-  --color-tag-dark: #a81e1a;
-  --color-mark: #ffd23f;
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Material-You-artige Tonpalette (Seed: Gruen) + Apple-typische Flaechen. Light/Dark ueber .dark. */
+:root {
+  --background: #f4f9f5;
+  --foreground: #161d18;
+  --card: #ffffff;
+  --card-foreground: #161d18;
+  --primary: #1b6b48;
+  --primary-foreground: #ffffff;
+  --secondary: #d5eadc;
+  --secondary-foreground: #0b2418;
+  --muted: #e6eee8;
+  --muted-foreground: #526159;
+  --accent: #ffe39a;
+  --accent-foreground: #3a2c00;
+  --border: #d3ddd6;
+  --ring: #1b6b48;
+  --discount: #d32f2f;
+  --discount-foreground: #ffffff;
+  --radius: 1rem;
+}
+.dark {
+  --background: #0f1511;
+  --foreground: #e1e8e2;
+  --card: #18201b;
+  --card-foreground: #e1e8e2;
+  --primary: #8fd6ac;
+  --primary-foreground: #00391f;
+  --secondary: #2a4535;
+  --secondary-foreground: #d5eadc;
+  --muted: #1f2923;
+  --muted-foreground: #a2b0a7;
+  --accent: #5c4a00;
+  --accent-foreground: #ffe39a;
+  --border: #2c372f;
+  --ring: #8fd6ac;
+  --discount: #ff6b6b;
+  --discount-foreground: #3b0000;
 }
 
-html { background: var(--color-paper); }
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, "SF Pro Display", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-discount: var(--discount);
+  --color-discount-foreground: var(--discount-foreground);
+  --radius-2xl: 1.25rem;
+}
+
+html { background: var(--background); color-scheme: light; }
+html.dark { color-scheme: dark; }
 body {
   margin: 0;
-  font-family: var(--font-body);
-  color: var(--color-ink);
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background: var(--background);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color .25s ease, color .25s ease;
 }
+h1, h2, h3, .font-display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 
-h1, h2, h3, .font-display {
-  font-family: var(--font-display);
-  font-stretch: 75%;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
-}
-
-:focus-visible { outline: 3px solid var(--color-mark); outline-offset: 2px; }
-
-/* Perforierter Abriss am unteren Rand der Kassenbon-Karten */
-.receipt {
-  --notch: 8px;
-  background:
-    radial-gradient(circle at 50% 100%, var(--color-paper) 0 4px, transparent 4.5px) bottom / 16px 8px repeat-x,
-    var(--color-card);
-  padding-bottom: calc(1.25rem + var(--notch));
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
-}
+:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+button { -webkit-tap-highlight-color: transparent; }
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-:root { --header-h: 56px; }
+:root { --header-h: 60px; }
+
+/* Apple-artige Milchglas-Flaeche */
+.glass { background: color-mix(in oklab, var(--background) 84%, transparent); backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6); }
+
+@keyframes slide-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes collapsible-down { from { height: 0; opacity: 0; } to { height: var(--radix-collapsible-content-height); opacity: 1; } }
+@keyframes collapsible-up { from { height: var(--radix-collapsible-content-height); opacity: 1; } to { height: 0; opacity: 0; } }
+@keyframes check-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.animate-slide-down { animation: slide-down .35s cubic-bezier(.2,.8,.2,1) both; }
+.animate-fade-up { animation: fade-up .3s ease both; }
+.animate-collapsible-down { animation: collapsible-down .25s ease-out; overflow: hidden; }
+.animate-collapsible-up { animation: collapsible-up .2s ease-in; overflow: hidden; }
+.animate-check-pop { animation: check-pop .25s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, session } from "../api";
-import { Button, Field, Notice, inputCls } from "../components/ui";
+import { Button, Card, Field, Notice, inputCls } from "../components/ui";
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
@@ -24,28 +24,29 @@ export function Login({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <main className="min-h-screen grid md:grid-cols-[1.1fr_1fr]">
-      <div className="bg-ink text-paper p-8 md:p-14 flex flex-col justify-end">
-        <h1 className="text-6xl md:text-8xl max-w-[10ch]">Einkaufen nach Angebot.</h1>
-        <p className="mt-6 max-w-md text-paper/80">
-          Deine Cookidoo-Rezepte, zusammengerechnet und mit den aktuellen Angeboten österreichischer Supermärkte abgeglichen.
-        </p>
-      </div>
-      <div className="p-8 md:p-14 flex items-center">
-        <form onSubmit={submit} className="w-full max-w-sm space-y-4">
-          <h2 className="text-3xl">Mit Cookidoo anmelden</h2>
-          <Field label="E-Mail">
-            <input className={inputCls} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="Passwort" hint="Das Passwort wird nur für die Anmeldung bei Cookidoo verwendet und nicht gespeichert.">
-            <input className={inputCls} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-          {error && <Notice tone="error">{error}</Notice>}
-          <Button type="submit" disabled={busy} className="w-full">{busy ? "Anmelden …" : "Anmelden"}</Button>
-          <p className="text-xs text-ink-soft">
-            Die Verbindung nutzt eine inoffizielle Cookidoo-Schnittstelle. Sie ist für den privaten Gebrauch gedacht und kann sich ohne Vorwarnung ändern.
-          </p>
-        </form>
+    <main className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute -top-32 -left-24 size-96 rounded-full bg-secondary opacity-70 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -bottom-32 size-96 rounded-full bg-accent opacity-50 blur-3xl" />
+      <div className="relative w-full max-w-md">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 grid size-16 place-items-center rounded-3xl bg-primary text-3xl shadow-lg" aria-hidden="true">🛒</div>
+          <h1 className="text-4xl">Einkaufen nach Angebot</h1>
+          <p className="mt-2 text-muted-foreground">Deine Cookidoo-Rezepte, abgeglichen mit den aktuellen Angeboten österreichischer Supermärkte.</p>
+        </div>
+        <Card className="glass p-6 shadow-xl">
+          <form onSubmit={submit} className="space-y-4">
+            <h2 className="text-xl">Mit Cookidoo anmelden</h2>
+            <Field label="E-Mail">
+              <input className={inputCls} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+            <Field label="Passwort" hint="Wird nur für die Anmeldung bei Cookidoo verwendet und nicht gespeichert.">
+              <input className={inputCls} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </Field>
+            {error && <Notice tone="error">{error}</Notice>}
+            <Button type="submit" disabled={busy} className="w-full">{busy ? "Anmelden …" : "Anmelden"}</Button>
+            <p className="text-xs text-muted-foreground">Die Verbindung nutzt eine inoffizielle Cookidoo-Schnittstelle für den privaten Gebrauch und kann sich ohne Vorwarnung ändern.</p>
+          </form>
+        </Card>
       </div>
     </main>
   );

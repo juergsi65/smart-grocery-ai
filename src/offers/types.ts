@@ -38,9 +38,16 @@ export interface OfferRow {
   retailer_logo?: string | null;
 }
 
+export interface SourceStats {
+  /** Verworfen: kein Lebensmittelhaendler / Nicht-Lebensmittel-Kategorie. */
+  filtered: number;
+  /** Verworfen: fehlerhafte Einzelangebote (Validierung). */
+  invalid: number;
+}
+
 /** Eine Angebotsquelle. Mehrere Adapter koennen parallel existieren. */
 export interface OfferSource {
   id: string;
   /** Sucht Angebote zu einem Begriff. Wirft bei Fehlern. */
-  search(term: string, opts: { zip: string; limit?: number }): Promise<NormalizedOffer[]>;
+  search(term: string, opts: { zip: string; limit?: number; stats?: SourceStats }): Promise<NormalizedOffer[]>;
 }

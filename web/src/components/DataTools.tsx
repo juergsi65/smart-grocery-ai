@@ -49,33 +49,33 @@ export function DataTools() {
 
   return (
     <section className="space-y-5">
-      <h2 className="text-3xl">Angebotsdaten</h2>
+      <h2 className="text-xl">Angebotsdaten</h2>
       {stats && (
-        <p className="text-sm text-ink-soft">
-          <strong className="text-ink">{stats.activeOffers}</strong> gültige Angebote
+        <p className="text-sm text-muted-foreground">
+          <strong className="text-foreground">{stats.activeOffers}</strong> gültige Angebote
           {stats.retailers.length ? ` bei ${stats.retailers.map((r) => `${r.name ?? r.id} (${r.n})`).join(", ")}` : ""}.
         </p>
       )}
       <div className="flex flex-wrap gap-3 items-center">
-        <Button onClick={refresh} disabled={busy !== null}>{busy === "refresh" ? "Wird geladen …" : "Angebote von Marktguru laden"}</Button>
-        <span className="text-xs text-ink-soft">Läuft zusätzlich täglich automatisch.</span>
+        <Button onClick={refresh} disabled={busy !== null}>{busy === "refresh" ? "Wird geladen …" : "Angebote laden (Marktguru, nur Lebensmittel)"}</Button>
+        <span className="text-xs text-muted-foreground">Läuft zusätzlich täglich automatisch.</span>
       </div>
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
-      <details className="rounded-md border border-line bg-card p-4">
+      <details className="rounded-2xl border border-border bg-card p-4">
         <summary className="cursor-pointer font-semibold">Angebote als JSON importieren</summary>
-        <p className="text-sm text-ink-soft my-3 max-w-xl">Preise in Euro. Optional: <code>imageUrl</code>, <code>category</code>, <code>retailerLogo</code> (nur https).</p>
+        <p className="text-sm text-muted-foreground my-3 max-w-xl">Preise in Euro. Optional: <code>imageUrl</code>, <code>category</code>, <code>retailerLogo</code> (nur https).</p>
         <textarea aria-label="Angebote als JSON" className={`${inputCls} min-h-40 font-mono text-sm`} value={json} onChange={(e) => setJson(e.target.value)} placeholder={EXAMPLE} />
-        <div className="mt-3"><Button variant="ghost" onClick={doImport} disabled={busy !== null || !json.trim()}>{busy === "import" ? "Importieren …" : "Importieren"}</Button></div>
+        <div className="mt-3"><Button variant="outline" onClick={doImport} disabled={busy !== null || !json.trim()}>{busy === "import" ? "Importieren …" : "Importieren"}</Button></div>
       </details>
       {stats && stats.recentRuns.length > 0 && (
-        <details className="rounded-md border border-line bg-card p-4">
+        <details className="rounded-2xl border border-border bg-card p-4">
           <summary className="cursor-pointer font-semibold">Letzte Aktualisierungen</summary>
-          <ul className="text-sm divide-y divide-line mt-3">
+          <ul className="text-sm divide-y divide-border mt-3">
             {stats.recentRuns.map((r, i) => (
               <li key={i} className="py-2 flex flex-wrap gap-x-4">
-                <span className="text-ink-soft">{new Date(r.started_at).toLocaleString("de-AT", { dateStyle: "short", timeStyle: "short" })}</span>
+                <span className="text-muted-foreground">{new Date(r.started_at).toLocaleString("de-AT", { dateStyle: "short", timeStyle: "short" })}</span>
                 <span>{r.source}</span>
-                <span className={r.ok ? "" : "text-tag-dark"}>{r.ok ? `${r.count} Angebote` : "fehlgeschlagen"}{r.message ? ` · ${r.message}` : ""}</span>
+                <span className={r.ok ? "" : "text-primary"}>{r.ok ? `${r.count} Angebote` : "fehlgeschlagen"}{r.message ? ` · ${r.message}` : ""}</span>
               </li>
             ))}
           </ul>

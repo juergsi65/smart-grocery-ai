@@ -6,6 +6,7 @@ import { chunkOf, refreshOffers } from "./offers/ingest";
 import { offers } from "./offers/routes";
 import { optimizeRoutes } from "./optimize-routes";
 import { purgeExpiredSessions } from "./session";
+import { shopping } from "./shopping/routes";
 
 const app = new Hono<{ Bindings: Env; Variables: AppVars }>();
 
@@ -15,6 +16,7 @@ app.get("/api/health", (c) => c.json({ status: "ok", version: "0.2.0" }));
 app.route("/api/cookidoo", cookidoo);
 app.route("/api/offers", offers);
 app.route("/api/optimize", optimizeRoutes);
+app.route("/api/v1/shopping-list", shopping);
 
 app.notFound((c) => (c.req.path.startsWith("/api/") ? c.json({ error: "Nicht gefunden" }, 404) : c.env.ASSETS.fetch(c.req.raw)));
 app.onError((e, c) => {

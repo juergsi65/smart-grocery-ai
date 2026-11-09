@@ -58,3 +58,16 @@ Workers AI läuft auch lokal nur remote — ohne Zugang greift automatisch der R
 - Kategorien: `src/categories.ts` (Schlüsselwörter, Quelle-Hinweis nur als Fallback). Pläne sind je Markt nach Regal-Reihenfolge sortiert.
 - Bilder/Logos werden von der Quelle verlinkt (Marktguru-CDN, unverifiziert für .at); bei Fehlern erscheinen Kategorie-Icon bzw. Initialen.
 - Migration `0002_categories_discounts.sql` muss vor dem Deploy angewendet sein (`npm run db:migrate:remote`).
+
+## Einkaufsliste mit Status, Lebensmittel-Filter, Design
+
+- **Liste:** `shopping_items` (D1, Migration `0003`), je Cookidoo-Benutzer. Flags `is_bought` / `in_pantry`.
+  `GET /api/v1/shopping-list`, `POST .../items`, `PATCH .../items/:id` (`{ "is_bought": true }`), `DELETE .../items/:id`,
+  `POST .../import` (`cookidoo-list` oder `recipes`). Cookidoo-Haken (`isOwned`) werden beim Import zu `is_bought`
+  (nur wenn alle Cookidoo-Zeilen der Zutat abgehakt sind); lokale Flags gehen beim Re-Import nie verloren.
+  Rückschreiben der Haken nach Cookidoo ist nicht implementiert.
+- **Optimizer:** `POST /api/optimize { source: "list" }` überspringt gekaufte/vorhandene Zutaten komplett (`skippedDone` in der Antwort).
+- **Marktguru:** nur AT-Lebensmittelhändler (`src/offers/food.ts`: Billa, Billa Plus, Spar/Eurospar/Interspar, Hofer, Lidl, Penny, MPREIS, Unimarkt, ADEG, denn's) und keine Nicht-Lebensmittel-Kategorien. Jedes Angebot wird per Zod validiert
+  (`src/offers/schema.ts`), fehlerhafte werden gezählt statt den Lauf abzubrechen; Retry bei 429/5xx, veraltete Keys als Fallback,
+  zuletzt gespeicherte Angebote in D1 bleiben als Fallback-Cache.
+- **UI:** shadcn/ui-Muster (cva, Radix) + Tailwind v4, Material-You-Tonpalette, Light/Dark (System/Hell/Dunkel), Milchglas-Navigation, 44-px-Touchziele.

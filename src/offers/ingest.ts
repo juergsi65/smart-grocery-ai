@@ -6,7 +6,7 @@
 import type { Env } from "../env";
 import { marktguru } from "./marktguru";
 import { deleteExpired, upsertOffers } from "./store";
-import type { NormalizedOffer, OfferSource } from "./types";
+import type { NormalizedOffer, OfferSource, SourceStats } from "./types";
 
 export const MAX_TERMS_PER_RUN = 40;
 
@@ -40,6 +40,10 @@ export interface RefreshResult {
   termsTried: number;
   termsFailed: number;
   offers: number;
+  /** Verworfen: keine Lebensmittelhaendler / Nicht-Lebensmittel. */
+  filtered: number;
+  /** Verworfen: fehlerhafte Einzelangebote. */
+  invalid: number;
   firstError?: string;
 }
 
@@ -53,13 +57,14 @@ export async function refreshOffers(
   const list = [...new Set(terms.map((t) => t.trim()).filter(Boolean))].slice(0, MAX_TERMS_PER_RUN);
   const started = Date.now();
   const collected = new Map<string, NormalizedOffer>();
+  const stats: SourceStats = { filtered: 0, invalid: 0 };
   let failed = 0;
   let firstError: string | undefined;
 
   // Sequenziell in kleinen Gruppen, um die Quelle nicht zu fluten.
   for (let i = 0; i < list.length; i += 4) {
     const group = list.slice(i, i + 4);
-    const settled = await Promise.allSettled(group.map((t) => source.search(t, { zip })));
+    const settled = await Promise.allSettled(group.map((t) => source.search(t, { zip, stats })));
     settled.forEach((r) => {
       if (r.status === "fulfilled") {
         for (const o of r.value) collected.set(`${o.source}|${o.externalId ?? o.retailerId + o.productName + o.priceCents}`, o);
@@ -77,7 +82,10 @@ export async function refreshOffers(
   await deleteExpired(env);
   const ok = failed < list.length || list.length === 0;
   await env.DB.prepare("INSERT INTO ingest_runs (source, started_at, ok, count, message) VALUES (?,?,?,?,?)")
-    .bind(source.id, started, ok ? 1 : 0, count, firstError ?? null)
+    .bind(
+      source.id, started, ok ? 1 : 0, count,
+      firstError ?? (stats.filtered || stats.invalid ? `${stats.filtered} Nicht-Lebensmittel gefiltert, ${stats.invalid} ungültig` : null),
+    )
     .run();
-  return { source: source.id, termsTried: list.length, termsFailed: failed, offers: count, firstError };
+  return { source: source.id, termsTried: list.length, termsFailed: failed, offers: count, filtered: stats.filtered, invalid: stats.invalid, firstError };
 }

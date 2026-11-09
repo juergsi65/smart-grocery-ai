@@ -33,7 +33,7 @@ export interface Plan {
   totalCents: number; savingsCents: number; coveredCount: number; totalCount: number;
 }
 export interface OptimizeResponse {
-  recipes: unknown[]; ingredientCount: number;
+  recipes: unknown[]; ingredientCount: number; skippedDone?: number;
   matching: { ingredients: number; withOffers: number; aiTasks: number; aiAccepted: number; fallbackAccepted: number };
   refresh: null | { offers?: number; termsFailed?: number; firstError?: string; error?: string };
   plans: Plan[];
@@ -52,3 +52,10 @@ export interface BrowseResponse {
   retailers: RetailerFacet[];
 }
 export type Sort = "discount" | "price" | "unit";
+
+export interface ShoppingItem {
+  id: string; name: string; display: string; category: string;
+  source: "manual" | "cookidoo" | "recipes";
+  is_bought: boolean; in_pantry: boolean; updated_at: number;
+}
+export interface ShoppingListResponse2 { items: ShoppingItem[]; counts: { open: number; done: number }; imported?: number }

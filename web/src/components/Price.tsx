@@ -6,7 +6,7 @@ export function Price({ cents, size = "md", strike = false }: { cents: number; s
   const small = size === "lg" ? "text-xl" : size === "md" ? "text-base" : "text-[0.65rem]";
   return (
     <span
-      className={`font-display inline-flex items-start leading-none tabular-nums ${big} ${strike ? "text-ink-soft line-through decoration-tag decoration-2" : ""}`}
+      className={`font-display inline-flex items-start leading-none tabular-nums ${big} ${strike ? "text-muted-foreground line-through decoration-discount decoration-2" : ""}`}
       aria-label={`${euro},${rest} Euro`}
     >
       <span>{euro}</span>

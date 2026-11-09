@@ -138,7 +138,7 @@ cookidoo.post("/combine", requireSession, async (c) => {
 
 export async function loadShoppingList(c: C) {
   const { ingredients, additional } = await withClient(c, (cl) => cl.getShoppingList());
-  const canon = ingredients.map((i) => ({ name: i.name, quantity: parseQuantity(i.description) }));
+  const canon = ingredients.filter((i) => !i.isOwned).map((i) => ({ name: i.name, quantity: parseQuantity(i.description) }));
   return {
     items: [
       ...ingredients.map((i) => ({
