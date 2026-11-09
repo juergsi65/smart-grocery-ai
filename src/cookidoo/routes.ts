@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppVars, Env } from "../env";
-import { createSession, deleteSession, requireSession, saveCookies } from "../session";
+import { ConfigError, createSession, deleteSession, requireSession, saveCookies } from "../session";
 import { aggregate, ingredientFromCookidoo, type CanonicalIngredient } from "./aggregate";
 import {
   CookidooAuthError,
@@ -38,7 +38,12 @@ export function errorResponse(c: C, e: unknown): Response {
   if (e instanceof CookidooRequestError || e instanceof CookidooParseError) {
     return c.json({ error: e.message }, 502);
   }
+  if (e instanceof ConfigError) return c.json({ error: e.message }, 500);
   console.error("unhandled", e);
+  const msg = String((e as Error)?.message ?? e);
+  if (/no such table/i.test(msg)) {
+    return c.json({ error: "Datenbank nicht eingerichtet: Schema fehlt (npm run db:migrate:remote)" }, 500);
+  }
   return c.json({ error: "Interner Fehler" }, 500);
 }
 

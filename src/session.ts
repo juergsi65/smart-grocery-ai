@@ -6,6 +6,8 @@
 import type { Context, MiddlewareHandler } from "hono";
 import type { AppVars, Env } from "./env";
 
+export class ConfigError extends Error {}
+
 const SESSION_TTL_MS = 14 * 24 * 3600 * 1000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -20,7 +22,7 @@ export async function sha256Hex(s: string): Promise<string> {
 }
 
 async function aesKey(secret: string): Promise<CryptoKey> {
-  if (!secret || secret.length < 16) throw new Error("SESSION_KEY fehlt oder ist zu kurz (min. 16 Zeichen)");
+  if (!secret || secret.length < 16) throw new ConfigError("Server nicht konfiguriert: Secret SESSION_KEY fehlt oder ist zu kurz (mind. 16 Zeichen)");
   const raw = await crypto.subtle.digest("SHA-256", enc.encode(secret));
   return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
